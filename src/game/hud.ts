@@ -311,13 +311,14 @@ export class GameHud {
             </div>
             <div class="detail-right">
               <h3>${selectedInfo.name}</h3>
-              <p>${selectedInfo.desc}</p>
+              <p>${selectedInfo.desc.split(' Pasiva — ')[0]}</p>
               <div class="meters-grid">
                 ${bar('VIDA', selected.baseHp, 300, '#22c55e')}
                 ${bar('DAÑO', Math.max(selected.baseAtk, selected.baseMatk), 38, '#ef4444')}
-                ${bar('VELOCIDAD', selected.baseMoveSpeed * 10, 55, '#38bdf8')}
+                ${bar('VELOCIDAD', selected.baseMoveSpeed * 10, 62, '#38bdf8')}
                 ${bar('DEFENSA', selected.baseDef, 60, '#f59e0b')}
               </div>
+              <div class="passive-chip">${selectedInfo.passive}</div>
               <div class="skill-list">${skillChips}</div>
             </div>
           </div>
@@ -516,6 +517,11 @@ export class GameHud {
     // Status Card
     const hpPct = Math.round((player.hp / Math.max(1, derived.maxHp)) * 100);
     const spPct = Math.round((player.sp / Math.max(1, derived.maxSp)) * 100);
+    const sprintPct = Math.round(player.sprintMomentum * 100);
+    const sprintMaxed = sprintPct >= 99;
+    const sprintBarHtml = player.classId === 'velociraptor' && player.sprintMomentum > 0.05
+      ? `<div class="bar-row sprint${sprintMaxed ? ' maxed' : ''}"><div class="bar-fill" style="width:${sprintPct}%"></div><span>⚡ SPRINT ${sprintPct}%${sprintMaxed ? ' MAX' : ''}</span></div>`
+      : '';
 
     const buffLabels: Record<string, string> = {
       tyrant_fury: 'Furia Tirano',
@@ -562,6 +568,7 @@ export class GameHud {
           </div>
           <div class="bar-row hp"><div class="bar-fill" style="width:${hpPct}%"></div><span>HP ${Math.ceil(player.hp)} / ${derived.maxHp}</span></div>
           <div class="bar-row sp"><div class="bar-fill" style="width:${spPct}%"></div><span>SP ${Math.floor(player.sp)} / ${derived.maxSp}</span></div>
+          ${sprintBarHtml}
         </div>
       </div>
       ${activeBuffsHtml ? `<div class="pet-buff-row">${activeBuffsHtml}</div>` : ''}

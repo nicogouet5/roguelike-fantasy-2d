@@ -16,7 +16,7 @@ import { getElementMultiplier } from '../src/core/elements.ts';
 import { buyAmberPotion, createGameState, stepGame, transitionToNextZone, usePotion } from '../src/core/engine.ts';
 import { gridToScreen, screenToGrid } from '../src/core/iso.ts';
 import { generateZoneMap, hasWalkablePath, isPlayerTraversable, isWalkable } from '../src/core/mapGen.ts';
-import { cast, grantPlayerExp } from '../src/core/skills.ts';
+import { cast, damageMob, getClassPassiveDamageMult, grantPlayerExp } from '../src/core/skills.ts';
 import { computeDerivedStats, getBasicAttackRange, mitigateDamage } from '../src/core/stats.ts';
 import type { ZoneMap } from '../src/core/types.ts';
 
@@ -78,6 +78,119 @@ describe('DinoBlade Core & Data Validation', () => {
     // Pteranodon has high ranged ATK & fast speed
     expect(ptera.atk).toBeGreaterThan(dodo.atk);
     expect(ptera.moveSpeed).toBeGreaterThan(rex.moveSpeed);
+  });
+
+  it('gives the Velociraptor clearly the highest base move speed of all classes', () => {
+    const raptorCls = data.classesById['velociraptor']!;
+    const raptor = computeDerivedStats(createGameState(data, { classId: 'velociraptor', seed: 'spd' }), data);
+    for (const cls of data.classes) {
+      if (cls.id === 'velociraptor') continue;
+      expect(raptorCls.baseMoveSpeed).toBeGreaterThan(cls.baseMoveSpeed + 0.75);
+      const other = computeDerivedStats(createGameState(data, { classId: cls.id, seed: 'spd' }), data);
+      expect(raptor.moveSpeed).toBeGreaterThan(other.moveSpeed);
+    }
+    // Slowest bastion vs heavy colossus ordering
+    expect(data.classesById['triceratops']!.baseMoveSpeed).toBeLessThan(data.classesById['trex']!.baseMoveSpeed);
+  });
+
+  it('ramps Velociraptor Sprint de Cazador momentum while moving, caps at 1 and decays when idle', () => {
+    const state = createGameState(data, { classId: 'velociraptor', seed: 'sprint' });
+    // Keep the arena empty so no kills/level-up offers pause the sim and no buffs/pickups skew stats.
+    const tick = (moveX: number, moveY: number): void => {
+      state.mobs = [];
+      state.drops = [];
+      state.waveTimerMs = 999999;
+      state.respawnTimerMs = 999999;
+      state.pet.supportCooldownMs = 999999;
+      stepGame(state, data, 50, { moveX, moveY });
+    };
+    expect(state.player.sprintMomentum).toBe(0);
+    const base = computeDerivedStats(state, data);
+
+    // ~1 s of movement: partial momentum
+    for (let i = 0; i < 20; i++) tick(1, 0);
+    const partial = state.player.sprintMomentum;
+    expect(partial).toBeGreaterThan(0.25);
+    expect(partial).toBeLessThan(0.45);
+    const partialDerived = computeDerivedStats(state, data);
+    expect(partialDerived.moveSpeed).toBeGreaterThan(base.moveSpeed);
+
+    // Keep moving well past 3 s: capped at exactly 1.0
+    for (let i = 0; i < 80; i++) tick(i % 2 === 0 ? 1 : -1, 0.5);
+    expect(state.player.sprintMomentum).toBe(1);
+    const full = computeDerivedStats(state, data);
+    state.player.sprintMomentum = 0;
+    const still = computeDerivedStats(state, data);
+    state.player.sprintMomentum = 1;
+    expect(still.moveSpeed).toBeCloseTo(base.moveSpeed, 5);
+    expect(full.moveSpeed).toBeCloseTo(still.moveSpeed * 1.42, 5);
+    expect(full.aspd).toBeCloseTo(still.aspd * 1.18, 5);
+    expect(full.critChance).toBeCloseTo(still.critChance + 0.12, 5);
+    expect(full.moveSpeed).toBeGreaterThan(partialDerived.moveSpeed);
+
+    // Standing still decays momentum back to 0 (~0.8 s)
+    tick(0, 0);
+    expect(state.player.sprintMomentum).toBeLessThan(1);
+    for (let i = 0; i < 20; i++) tick(0, 0);
+    expect(state.player.sprintMomentum).toBe(0);
+    expect(computeDerivedStats(state, data).moveSpeed).toBeCloseTo(still.moveSpeed, 5);
+
+    // Other classes never build momentum
+    const rex = createGameState(data, { classId: 'trex', seed: 'sprint' });
+    rex.mobs = [];
+    for (let i = 0; i < 40; i++) stepGame(rex, data, 50, { moveX: 1, moveY: 0 });
+    expect(rex.player.sprintMomentum).toBe(0);
+  });
+
+  it('applies every innate class passive (T-Rex execute, Trike thorns, Dodo CDR/SP, Ptera long-range)', () => {
+    // T-Rex — Ejecución Tiránica: +25% vs enemies below 45% HP
+    const rex = createGameState(data, { classId: 'trex', seed: 'passive-rex' });
+    const rexMob = rex.mobs[0]!;
+    rexMob.hp = rexMob.maxHp;
+    expect(getClassPassiveDamageMult(rex, rexMob)).toBe(1);
+    rexMob.hp = Math.floor(rexMob.maxHp * 0.4);
+    expect(getClassPassiveDamageMult(rex, rexMob)).toBeCloseTo(1.25, 5);
+
+    const dealtAt = (hpRatio: number): number => {
+      const st = createGameState(data, { classId: 'trex', seed: 'passive-rex-dmg' });
+      const m = st.mobs[0]!;
+      m.maxHp = 1_000_000;
+      m.hp = Math.floor(m.maxHp * hpRatio);
+      return damageMob(st, data, m, 500, 'Neutral', true, { forceCrit: false }).dealt;
+    };
+    expect(dealtAt(0.3)).toBeGreaterThan(dealtAt(1) * 1.15);
+
+    // Triceratops — innate +0.20 thorns on top of boons
+    const trike = computeDerivedStats(createGameState(data, { classId: 'triceratops', seed: 'p' }), data);
+    const raptorNoThorns = computeDerivedStats(createGameState(data, { classId: 'velociraptor', seed: 'p' }), data);
+    expect(trike.thornsRatio).toBeCloseTo(raptorNoThorns.thornsRatio + 0.2, 5);
+    expect(trike.thornsRatio).toBeGreaterThanOrEqual(0.2);
+
+    // Dodo — innate +10% CDR and +2.5 SP/s
+    const dodoState = createGameState(data, { classId: 'dodo', seed: 'p' });
+    const dodo = computeDerivedStats(dodoState, data);
+    expect(dodo.cdr).toBeCloseTo(0.1, 5);
+    const s = dodo.effectiveStats;
+    expect(dodo.spRegen).toBeCloseTo(4.2 + s.INT * 0.28 + 2.5, 5);
+    const rexDerived = computeDerivedStats(rex, data);
+    expect(rexDerived.cdr).toBe(0);
+
+    // Pteranodon — Vuelo de Precisión: +22% vs targets beyond 4 tiles
+    const ptera = createGameState(data, { classId: 'pteranodon', seed: 'passive-ptera' });
+    const pMob = ptera.mobs[0]!;
+    pMob.x = ptera.player.x + 2;
+    pMob.y = ptera.player.y;
+    expect(getClassPassiveDamageMult(ptera, pMob)).toBe(1);
+    pMob.x = ptera.player.x + 5.5;
+    expect(getClassPassiveDamageMult(ptera, pMob)).toBeCloseTo(1.22, 5);
+    expect(data.classesById['pteranodon']!.canFly).toBe(true);
+
+    // Classes without damage passives are unaffected
+    const raptorState = createGameState(data, { classId: 'velociraptor', seed: 'p' });
+    const rMob = raptorState.mobs[0]!;
+    rMob.hp = 1;
+    rMob.x = raptorState.player.x + 6;
+    expect(getClassPassiveDamageMult(raptorState, rMob)).toBe(1);
   });
 
   it('computes elemental weaknesses and hyperbolic DEF mitigation cleanly', () => {

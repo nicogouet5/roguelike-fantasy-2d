@@ -34,6 +34,20 @@ export const TAG_SET_TIERS: Record<BuildTag, readonly [TagSetTier, TagSetTier]> 
   ],
 };
 
+/** Innate class passive tuning (described to the player in names.es.json `classes.*.desc`). */
+export const TRICERATOPS_INNATE_THORNS = 0.2;
+export const DODO_INNATE_CDR = 0.1;
+export const DODO_INNATE_SP_REGEN = 2.5;
+export const RAPTOR_SPRINT_MOVE_PCT = 0.42;
+export const RAPTOR_SPRINT_ASPD_PCT = 0.18;
+export const RAPTOR_SPRINT_CRIT = 0.12;
+/** Sprint momentum stacks above the normal 7.8 move-speed cap, up to this hard cap. */
+export const RAPTOR_SPRINT_MAX_MOVE_SPEED = 9.5;
+export const TREX_EXECUTE_HP_RATIO = 0.45;
+export const TREX_EXECUTE_BONUS = 0.25;
+export const PTERA_LONG_RANGE_TILES = 4.0;
+export const PTERA_LONG_RANGE_BONUS = 0.22;
+
 export function expRequiredForLevel(level: number): number {
   return Math.round(70 + (level - 1) * 48 + Math.pow(level - 1, 1.55) * 18);
 }
@@ -142,6 +156,13 @@ export function computeDerivedStats(state: GameState, data: GameData): DerivedSt
   let damageReduction = 0;
   let thornsRatio = mods.thornsRatio;
 
+  // Innate class passives (always on, independent of boons/relics)
+  if (player.classId === 'triceratops') thornsRatio += TRICERATOPS_INNATE_THORNS;
+  const innateCdr = player.classId === 'dodo' ? DODO_INNATE_CDR : 0;
+  const innateSpRegen = player.classId === 'dodo' ? DODO_INNATE_SP_REGEN : 0;
+  // Velociraptor "Sprint de Cazador": bonuses scale smoothly with momentum (0..1)
+  const momentum = player.classId === 'velociraptor' ? Math.max(0, Math.min(1, player.sprintMomentum ?? 0)) : 0;
+
   for (const buff of player.buffs) {
     if (buff.remainingMs <= 0) continue;
     switch (buff.id) {
@@ -241,22 +262,27 @@ export function computeDerivedStats(state: GameState, data: GameData): DerivedSt
     4.2,
     Math.max(
       0.65,
-      cls.baseAspd * (1 + 0.011 * s.AGI + 0.003 * s.DEX) * Math.max(0.5, 1 + mods.aspdPct + buffAspdPct)
+      cls.baseAspd *
+        (1 + 0.011 * s.AGI + 0.003 * s.DEX) *
+        Math.max(0.5, 1 + mods.aspdPct + buffAspdPct) *
+        (1 + RAPTOR_SPRINT_ASPD_PCT * momentum)
     )
   );
 
-  const moveSpeed = Math.min(
+  const cappedMoveSpeed = Math.min(
     7.8,
     Math.max(2.4, cls.baseMoveSpeed * (1 + 0.0045 * s.AGI) * Math.max(0.65, 1 + mods.moveSpeedPct + buffSpeedPct))
   );
+  // Sprint momentum is applied on top of the normal cap so the Raptor's sprint is always felt.
+  const moveSpeed = Math.min(RAPTOR_SPRINT_MAX_MOVE_SPEED, cappedMoveSpeed * (1 + RAPTOR_SPRINT_MOVE_PCT * momentum));
 
   const critChance = Math.min(
     0.92,
-    Math.max(0.05, (0.05 + 0.0045 * s.LUK) * cls.critMult + mods.critChance + buffCrit)
+    Math.max(0.05, (0.05 + 0.0045 * s.LUK) * cls.critMult + mods.critChance + buffCrit) + RAPTOR_SPRINT_CRIT * momentum
   );
   const critDamage = 1.5 + mods.critDamage;
-  const cdr = Math.min(0.6, mods.cdrPct);
-  const spRegen = 4.2 + s.INT * 0.28 + mods.spRegen;
+  const cdr = Math.min(0.6, mods.cdrPct + innateCdr);
+  const spRegen = 4.2 + s.INT * 0.28 + mods.spRegen + innateSpRegen;
 
   return {
     effectiveStats: s,

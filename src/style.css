@@ -451,6 +451,16 @@ body,
   height: 100%;
 }
 
+.passive-chip {
+  margin-bottom: 8px;
+  padding: 6px 9px;
+  border-left: 2px solid var(--accent);
+  background: rgb(255 255 255 / 6%);
+  color: #f8f5ec;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .skill-list {
   display: flex;
   flex-direction: column;
@@ -719,6 +729,32 @@ body,
   font-size: 10px;
   font-weight: 700;
   text-shadow: 0 1px 2px #000;
+}
+
+.bar-row.sprint {
+  height: 12px;
+  margin-bottom: 0;
+  border-color: #155e75;
+  background: #08212d;
+}
+
+.bar-row.sprint .bar-fill {
+  background: linear-gradient(90deg, #0e7490, #22d3ee);
+}
+
+.bar-row.sprint span {
+  color: #ecfeff;
+  font-size: 9px;
+  text-shadow: 0 0 2px #08212d, 0 1px 2px #08212d;
+}
+
+.bar-row.sprint.maxed {
+  border-color: #67e8f9;
+  box-shadow: 0 0 6px rgb(34 211 238 / 45%);
+}
+
+.bar-row.sprint.maxed .bar-fill {
+  background: linear-gradient(90deg, #0891b2, #67e8f9);
 }
 
 .pet-buff-row {

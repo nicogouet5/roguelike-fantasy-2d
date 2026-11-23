@@ -133,6 +133,7 @@ export function createGameState(
       leapAnimMs: 0,
       autoAttack: true,
       autoCast: options.autoCast ?? false,
+      sprintMomentum: 0,
     },
     pet: {
       id: 'pet_codex',
@@ -198,6 +199,7 @@ export function enterZone(state: GameState, data: GameData, nextFloor: number): 
   state.zone = generateZoneMap(nextMap, state.seed);
   state.player.x = state.zone.spawn.x;
   state.player.y = state.zone.spawn.y;
+  state.player.sprintMomentum = 0;
   state.pet.x = state.zone.spawn.x - 1.1;
   state.pet.y = state.zone.spawn.y - 0.8;
   state.projectiles = [];
@@ -336,6 +338,18 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
 
   const player = state.player;
   const cls = data.classesById[player.classId]!;
+
+  // Velociraptor innate "Sprint de Cazador": momentum ramps while moving (~3 s to cap) and decays fast when idle.
+  if (player.classId === 'velociraptor') {
+    if (Math.hypot(input.moveX, input.moveY) > 0.15) {
+      player.sprintMomentum = Math.min(1, player.sprintMomentum + dtSec / 3.0);
+    } else {
+      player.sprintMomentum = Math.max(0, player.sprintMomentum - dtSec / 0.8);
+    }
+  } else {
+    player.sprintMomentum = 0;
+  }
+
   const derived = computeDerivedStats(state, data);
 
   // Decay player timers & buffs

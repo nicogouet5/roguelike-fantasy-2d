@@ -3,7 +3,15 @@ import type { GameData } from './data.ts';
 import { getElementMultiplier } from './elements.ts';
 import { isWalkable } from './mapGen.ts';
 import { createRng } from './rng.ts';
-import { computeDerivedStats, expRequiredForLevel, mitigateDamage } from './stats.ts';
+import {
+  PTERA_LONG_RANGE_BONUS,
+  PTERA_LONG_RANGE_TILES,
+  TREX_EXECUTE_BONUS,
+  TREX_EXECUTE_HP_RATIO,
+  computeDerivedStats,
+  expRequiredForLevel,
+  mitigateDamage,
+} from './stats.ts';
 import type {
   BuffId,
   CastResult,
@@ -81,6 +89,23 @@ export function addPlayerBuff(state: GameState, buffId: BuffId, durationMs: numb
   }
 }
 
+/**
+ * Innate class damage passives:
+ * - T-Rex "Ejecución Tiránica": +25% damage vs enemies below 45% HP.
+ * - Pteranodon "Vuelo de Precisión": +22% damage vs enemies farther than 4 tiles.
+ */
+export function getClassPassiveDamageMult(state: GameState, mob: MobEntity): number {
+  const player = state.player;
+  if (player.classId === 'trex') {
+    return mob.hp < mob.maxHp * TREX_EXECUTE_HP_RATIO ? 1 + TREX_EXECUTE_BONUS : 1;
+  }
+  if (player.classId === 'pteranodon') {
+    const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
+    return dist > PTERA_LONG_RANGE_TILES ? 1 + PTERA_LONG_RANGE_BONUS : 1;
+  }
+  return 1;
+}
+
 export function damageMob(
   state: GameState,
   data: GameData,
@@ -111,7 +136,9 @@ export function damageMob(
   const variance = rng.float(0.93, 1.07);
   const ignoreDef = Math.min(0.85, (options?.ignoreDefRatio ?? 0) + derived.ignoreDef);
 
-  const scaledRaw = rawDamage * elemMult * critMult * bleedBonusMult * variance;
+  const passiveMult = getClassPassiveDamageMult(state, mob);
+
+  const scaledRaw = rawDamage * elemMult * critMult * bleedBonusMult * passiveMult * variance;
   const def = isPhysical ? mobDef.def : mobDef.mdef;
   const dealt = mitigateDamage(scaledRaw, def, Math.floor(def * 0.15), isPhysical, ignoreDef);
 
