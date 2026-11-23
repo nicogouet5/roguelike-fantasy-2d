@@ -1,104 +1,247 @@
 [
   {
+    "id": "boon_stat_str",
+    "category": "stat",
+    "rarity": "common",
+    "tags": ["fire", "bleed"],
+    "maxRank": 5,
+    "mods": { "str": 5, "atkPct": 0.08 }
+  },
+  {
+    "id": "boon_stat_agi",
+    "category": "stat",
+    "rarity": "common",
+    "tags": ["speed", "crit"],
+    "maxRank": 5,
+    "mods": { "agi": 5, "aspdPct": 0.1, "moveSpeedPct": 0.06 }
+  },
+  {
+    "id": "boon_stat_vit",
+    "category": "stat",
+    "rarity": "common",
+    "tags": ["tank"],
+    "maxRank": 5,
+    "mods": { "vit": 6, "maxHpPct": 0.14, "flatDef": 10 }
+  },
+  {
+    "id": "boon_stat_int",
+    "category": "stat",
+    "rarity": "common",
+    "tags": ["arcane", "fire"],
+    "maxRank": 5,
+    "mods": { "int": 5, "matkPct": 0.1, "spRegen": 1.8 }
+  },
+  {
+    "id": "boon_stat_dex",
+    "category": "stat",
+    "rarity": "common",
+    "tags": ["crit", "arcane"],
+    "maxRank": 5,
+    "mods": { "dex": 5, "ignoreDef": 0.1, "areaPct": 0.08 }
+  },
+  {
+    "id": "boon_stat_luk",
+    "category": "stat",
+    "rarity": "common",
+    "tags": ["crit", "speed"],
+    "maxRank": 5,
+    "mods": { "luk": 6, "critChance": 0.08 }
+  },
+  {
     "id": "boon_primal_might",
     "category": "mutation",
     "rarity": "common",
+    "tags": ["fire", "crit"],
     "maxRank": 4,
-    "mods": { "atkPct": 0.14, "matkPct": 0.14 }
+    "mods": { "atkPct": 0.15, "matkPct": 0.15 }
   },
   {
     "id": "boon_raptor_reflex",
     "category": "mutation",
     "rarity": "common",
+    "tags": ["speed"],
     "maxRank": 4,
-    "mods": { "aspdPct": 0.15, "moveSpeedPct": 0.08 }
+    "mods": { "aspdPct": 0.16, "moveSpeedPct": 0.09 }
   },
   {
     "id": "boon_saurian_carapace",
     "category": "mutation",
     "rarity": "common",
+    "tags": ["tank"],
     "maxRank": 4,
-    "mods": { "maxHpPct": 0.18, "flatDef": 12 }
+    "mods": { "maxHpPct": 0.18, "flatDef": 14, "thornsRatio": 0.12 }
   },
   {
     "id": "boon_amber_veins",
     "category": "mutation",
     "rarity": "common",
+    "tags": ["arcane", "speed"],
     "maxRank": 4,
-    "mods": { "maxSpPct": 0.22, "spRegen": 2.5, "cdrPct": 0.08 }
+    "mods": { "maxSpPct": 0.22, "spRegen": 2.6, "cdrPct": 0.09 }
+  },
+  {
+    "id": "boon_serrated_claws",
+    "category": "mutation",
+    "rarity": "rare",
+    "tags": ["bleed"],
+    "maxRank": 3,
+    "mods": { "bleedOnHitChance": 0.35, "damageVsBleedingPct": 0.18 }
   },
   {
     "id": "boon_keen_fangs",
     "category": "mutation",
     "rarity": "rare",
+    "tags": ["crit"],
     "maxRank": 3,
-    "mods": { "critChance": 0.12, "critDamage": 0.25 }
+    "mods": { "critChance": 0.12, "critDamage": 0.28 }
   },
   {
     "id": "boon_blood_frenzy",
     "category": "mutation",
     "rarity": "rare",
+    "tags": ["bleed", "speed"],
     "maxRank": 3,
-    "mods": { "lifesteal": 0.07, "atkPct": 0.08 }
+    "mods": { "lifesteal": 0.07, "atkPct": 0.1 }
+  },
+  {
+    "id": "boon_butcher_pact",
+    "category": "mutation",
+    "rarity": "epic",
+    "tags": ["crit", "fire"],
+    "maxRank": 2,
+    "mods": { "atkPct": 0.4, "matkPct": 0.4, "maxHpPct": -0.18 }
+  },
+  {
+    "id": "boon_immovable_colossus",
+    "category": "mutation",
+    "rarity": "epic",
+    "tags": ["tank"],
+    "maxRank": 2,
+    "mods": { "maxHpPct": 0.44, "flatDef": 34, "thornsRatio": 0.2, "moveSpeedPct": -0.09 }
+  },
+  {
+    "id": "boon_projectile_overload",
+    "category": "mutation",
+    "rarity": "epic",
+    "tags": ["arcane", "speed"],
+    "maxRank": 2,
+    "mods": { "extraProjectiles": 2, "aspdPct": 0.18, "atkPct": -0.1, "matkPct": -0.1 }
   },
   {
     "id": "boon_obsidian_edge",
     "category": "mutation",
     "rarity": "epic",
+    "tags": ["crit", "bleed"],
     "maxRank": 2,
-    "mods": { "atkPct": 0.22, "matkPct": 0.22, "ignoreDef": 0.18 }
+    "mods": { "atkPct": 0.22, "matkPct": 0.22, "ignoreDef": 0.22 }
   },
   {
     "id": "boon_amber_resonance",
     "category": "mutation",
     "rarity": "epic",
+    "tags": ["arcane", "fire"],
     "maxRank": 2,
-    "mods": { "cdrPct": 0.18, "skillPowerPct": 0.2 }
+    "mods": { "cdrPct": 0.2, "skillPowerPct": 0.24 }
   },
   {
     "id": "boon_rex_titan_blade",
     "category": "skill",
     "rarity": "rare",
+    "tags": ["fire", "crit"],
     "classIds": ["trex"],
     "maxRank": 3,
-    "mods": { "skillPowerPct": 0.24, "areaPct": 0.18 }
+    "mods": { "skillPowerPct": 0.26, "areaPct": 0.2 }
   },
   {
     "id": "boon_raptor_phantom_edge",
     "category": "skill",
     "rarity": "rare",
+    "tags": ["speed", "crit", "bleed"],
     "classIds": ["velociraptor"],
     "maxRank": 3,
-    "mods": { "critChance": 0.1, "aspdPct": 0.18, "cdrPct": 0.12 }
+    "mods": { "critChance": 0.11, "aspdPct": 0.2, "cdrPct": 0.12 }
   },
   {
     "id": "boon_trike_fortress",
     "category": "skill",
     "rarity": "rare",
+    "tags": ["tank"],
     "classIds": ["triceratops"],
     "maxRank": 3,
-    "mods": { "maxHpPct": 0.22, "flatDef": 18, "skillPowerPct": 0.18 }
+    "mods": { "maxHpPct": 0.22, "flatDef": 20, "skillPowerPct": 0.2 }
+  },
+  {
+    "id": "boon_trike_long_horns",
+    "category": "skill",
+    "rarity": "epic",
+    "tags": ["tank", "bleed"],
+    "classIds": ["triceratops"],
+    "maxRank": 3,
+    "mods": { "hornRangePct": 0.35, "ignoreDef": 0.2, "atkPct": 0.14 }
   },
   {
     "id": "boon_dodo_cataclysm",
     "category": "skill",
     "rarity": "rare",
+    "tags": ["arcane", "fire"],
     "classIds": ["dodo"],
     "maxRank": 3,
-    "mods": { "matkPct": 0.2, "areaPct": 0.2, "cdrPct": 0.1 }
+    "mods": { "matkPct": 0.22, "areaPct": 0.22, "cdrPct": 0.12 }
   },
   {
     "id": "boon_ptera_gale_quiver",
     "category": "skill",
     "rarity": "rare",
+    "tags": ["speed", "arcane"],
     "classIds": ["pteranodon"],
     "maxRank": 3,
-    "mods": { "atkPct": 0.16, "aspdPct": 0.16, "extraProjectiles": 1 }
+    "mods": { "atkPct": 0.16, "aspdPct": 0.18, "extraProjectiles": 1 }
+  },
+  {
+    "id": "boon_cap_crit_storm",
+    "category": "capstone",
+    "rarity": "legendary",
+    "tags": ["crit", "speed"],
+    "maxRank": 1,
+    "mods": { "critChance": 0.12, "critLightningRatio": 0.75 }
+  },
+  {
+    "id": "boon_cap_blood_harvest",
+    "category": "capstone",
+    "rarity": "legendary",
+    "tags": ["bleed", "crit"],
+    "maxRank": 1,
+    "mods": { "bleedOnHitChance": 1.0, "damageVsBleedingPct": 0.34, "lifesteal": 0.06 }
+  },
+  {
+    "id": "boon_cap_titan_heart",
+    "category": "capstone",
+    "rarity": "legendary",
+    "tags": ["tank"],
+    "maxRank": 1,
+    "mods": { "hpToAtkRatio": 0.14, "maxHpPct": 0.24, "thornsRatio": 0.25 }
+  },
+  {
+    "id": "boon_cap_volcanic_core",
+    "category": "capstone",
+    "rarity": "legendary",
+    "tags": ["fire", "arcane"],
+    "maxRank": 1,
+    "mods": { "fireBurstOnHitChance": 0.38, "areaPct": 0.24, "matkPct": 0.16 }
+  },
+  {
+    "id": "boon_cap_berserk_fury",
+    "category": "capstone",
+    "rarity": "legendary",
+    "tags": ["fire", "speed"],
+    "maxRank": 1,
+    "mods": { "berserkMaxPct": 0.65, "aspdPct": 0.18 }
   },
   {
     "id": "boon_relic_rex_fang",
     "category": "relic",
     "rarity": "rare",
+    "tags": ["fire"],
     "maxRank": 1,
     "relicId": "relic_rex_fang",
     "mods": {}
@@ -107,6 +250,7 @@
     "id": "boon_relic_raptor_plume",
     "category": "relic",
     "rarity": "rare",
+    "tags": ["bleed", "speed"],
     "maxRank": 1,
     "relicId": "relic_raptor_plume",
     "mods": {}
@@ -115,6 +259,7 @@
     "id": "boon_relic_trike_plate",
     "category": "relic",
     "rarity": "rare",
+    "tags": ["tank"],
     "maxRank": 1,
     "relicId": "relic_trike_plate",
     "mods": {}
@@ -123,6 +268,7 @@
     "id": "boon_relic_volcanic_amber",
     "category": "relic",
     "rarity": "epic",
+    "tags": ["fire", "arcane"],
     "maxRank": 1,
     "relicId": "relic_volcanic_amber",
     "mods": {}
@@ -131,6 +277,7 @@
     "id": "boon_relic_abyssal_claw",
     "category": "relic",
     "rarity": "epic",
+    "tags": ["bleed", "arcane"],
     "maxRank": 1,
     "relicId": "relic_abyssal_claw",
     "mods": {}

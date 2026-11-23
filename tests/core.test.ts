@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { pickBoon, rerollOffer, rollBoonOffer } from '../src/core/boons.ts';
+import { getBuildTagCounts, pickBoon, rerollOffer, rollBoonOffer } from '../src/core/boons.ts';
 import { runHeadlessBot } from '../src/core/bot.ts';
 import { loadGameData } from '../src/core/data.ts';
 import { getElementMultiplier } from '../src/core/elements.ts';
-import { allocateStat, createGameState, stepGame, transitionToNextZone, usePotion } from '../src/core/engine.ts';
+import { createGameState, stepGame, transitionToNextZone, usePotion } from '../src/core/engine.ts';
 import { gridToScreen, screenToGrid } from '../src/core/iso.ts';
 import { generateZoneMap, hasWalkablePath } from '../src/core/mapGen.ts';
-import { cast } from '../src/core/skills.ts';
-import { computeDerivedStats, mitigateDamage } from '../src/core/stats.ts';
+import { cast, grantPlayerExp } from '../src/core/skills.ts';
+import { computeDerivedStats, getBasicAttackRange, mitigateDamage } from '../src/core/stats.ts';
 
 describe('DinoBlade Core & Data Validation', () => {
   const data = loadGameData();
@@ -101,7 +101,7 @@ describe('DinoBlade Core & Data Validation', () => {
     }
   });
 
-  it('handles roguelite boon offers deterministically with reroll, pick, stat allocation, and potions', () => {
+  it('handles roguelite boon offers deterministically with synergy weighting, reroll, pick, and potions', () => {
     const s1 = createGameState(data, { classId: 'trex', seed: 'offer-seed' });
     const s2 = createGameState(data, { classId: 'trex', seed: 'offer-seed' });
     const o1 = rollBoonOffer(s1, data, 'levelup');
@@ -111,17 +111,55 @@ describe('DinoBlade Core & Data Validation', () => {
 
     s1.pendingOffer = o1;
     expect(rerollOffer(s1, data)).toBe(true);
-    expect(s1.rerolls).toBe(1);
+    expect(s1.rerolls).toBe(2);
 
     const chosen = s1.pendingOffer!.choices[0]!;
     expect(pickBoon(s1, data, chosen)).toBe(true);
     expect(s1.boonRanks[chosen]).toBe(1);
+    const tags = getBuildTagCounts(s1, data);
+    expect(Object.values(tags).some((c) => c > 0)).toBe(true);
 
-    s1.player.statPoints = 2;
-    expect(allocateStat(s1, data, 'STR')).toBe(true);
     s1.player.hp = 50;
     expect(usePotion(s1, data)).toBe(true);
     expect(s1.player.hp).toBeGreaterThan(50);
+  });
+
+  it('grows Triceratops horn-lances with level and pierces all enemies in a line (Jarvan Q style)', () => {
+    const state = createGameState(data, { classId: 'triceratops', seed: 'trike-horns' });
+    const lv1Reach = getBasicAttackRange(state, data);
+
+    // Level up Triceratops to Lv 6 and verify horn reach grows + every level queues an offer
+    grantPlayerExp(state, data, 1500);
+    expect(state.player.level).toBeGreaterThanOrEqual(5);
+    expect(state.pendingOffer).not.toBeNull();
+    const highLvReach = getBasicAttackRange(state, data);
+    expect(highLvReach).toBeGreaterThan(lv1Reach + 1.2);
+
+    // Line up 3 mobs along +X axis inside grown horn reach and fire 1 basic thrust!
+    const m0 = state.mobs[0]!;
+    const m1 = state.mobs[1]!;
+    const m2 = state.mobs[2]!;
+    m0.x = state.player.x + 1.4;
+    m0.y = state.player.y;
+    m1.x = state.player.x + 2.6;
+    m1.y = state.player.y;
+    m2.x = state.player.x + 3.8;
+    m2.y = state.player.y;
+
+    const res = cast(state, data, 'player', 'trike_lance_basic', { x: state.player.x + 4, y: state.player.y });
+    expect(res.ok).toBe(true);
+    expect(res.hits).toBeGreaterThanOrEqual(3);
+    expect(state.events.some((e) => e.type === 'horn_thrust')).toBe(true);
+  });
+
+  it('applies Brotato/Hades capstone build synergies like Corazón de Titán (HP to ATK)', () => {
+    const state = createGameState(data, { classId: 'triceratops', seed: 'capstone-test' });
+    const before = computeDerivedStats(state, data);
+    state.boonRanks['boon_cap_titan_heart'] = 1;
+    const after = computeDerivedStats(state, data);
+    expect(after.maxHp).toBeGreaterThan(before.maxHp);
+    expect(after.atk).toBeGreaterThan(before.atk + 35);
+    expect(after.thornsRatio).toBeGreaterThanOrEqual(0.25);
   });
 
   it('transitions to boss floor with Spinosaurus Hoja-Abisal and executes headless bot cleanly', () => {

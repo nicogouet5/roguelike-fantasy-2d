@@ -2,7 +2,7 @@ import type { GameData } from './data.ts';
 import { isWalkable } from './mapGen.ts';
 import { createRng } from './rng.ts';
 import { computeDerivedStats } from './stats.ts';
-import type { BoonDef, BoonOffer, GameState } from './types.ts';
+import type { BoonDef, BoonOffer, BuildTag, GameState } from './types.ts';
 
 function nextOfferRng(state: GameState) {
   return createRng(state.rngOfferState);
@@ -10,6 +10,26 @@ function nextOfferRng(state: GameState) {
 
 function saveOfferRng(state: GameState, rngState: number): void {
   state.rngOfferState = rngState;
+}
+
+export function getBuildTagCounts(state: GameState, data: GameData): Record<BuildTag, number> {
+  const counts: Record<BuildTag, number> = {
+    fire: 0,
+    crit: 0,
+    speed: 0,
+    tank: 0,
+    bleed: 0,
+    arcane: 0,
+  };
+  for (const [boonId, rank] of Object.entries(state.boonRanks)) {
+    if (rank <= 0) continue;
+    const boon = data.boonsById[boonId];
+    if (!boon) continue;
+    for (const tag of boon.tags) {
+      counts[tag] += rank;
+    }
+  }
+  return counts;
 }
 
 export function getEligibleBoons(state: GameState, data: GameData): BoonDef[] {
@@ -22,15 +42,55 @@ export function getEligibleBoons(state: GameState, data: GameData): BoonDef[] {
   });
 }
 
-function rarityWeight(boon: BoonDef, source: 'levelup' | 'chest'): number {
+/**
+ * Brotato + Hades inspired weighted card roller:
+ * 1. LUK & player level progressively elevate Rare / Epic / Legendary drop odds.
+ * 2. Tag Synergy Bias: cards sharing BuildTags with already-picked boons gain
+ *    a strong multiplier so every run snowballs into a cohesive, distinct build.
+ * 3. Class-signature cards get a natural discovery bump.
+ */
+function cardDrawWeight(
+  boon: BoonDef,
+  source: 'levelup' | 'chest',
+  level: number,
+  luk: number,
+  tagCounts: Record<BuildTag, number>
+): { weight: number; hasSynergy: boolean } {
+  const luckFactor = Math.max(0, (luk - 6) * 0.045) + Math.max(0, (level - 1) * 0.08);
+
+  let base: number;
   if (source === 'chest') {
-    if (boon.rarity === 'epic') return 36;
-    if (boon.rarity === 'rare') return 48;
-    return 16;
+    if (boon.rarity === 'legendary') base = 20 + luckFactor * 14;
+    else if (boon.rarity === 'epic') base = 36 + luckFactor * 10;
+    else if (boon.rarity === 'rare') base = 42;
+    else base = 12;
+  } else {
+    if (boon.rarity === 'legendary') {
+      base = level >= 3 || luk >= 14 ? 8 + luckFactor * 10 : 2.5;
+    } else if (boon.rarity === 'epic') {
+      base = 16 + luckFactor * 9;
+    } else if (boon.rarity === 'rare') {
+      base = 34 + luckFactor * 6;
+    } else {
+      base = 48;
+    }
   }
-  if (boon.rarity === 'epic') return 14;
-  if (boon.rarity === 'rare') return 36;
-  return 50;
+
+  // Synergy multiplier (Brotato tag-bias + Hades god-pool lock-in)
+  let matchingTagPower = 0;
+  for (const tag of boon.tags) {
+    matchingTagPower += tagCounts[tag] ?? 0;
+  }
+  const hasSynergy = matchingTagPower >= 1;
+  const synergyMult = 1 + Math.min(2.6, matchingTagPower * 0.55);
+
+  // Class-specific cards get a mild nudge so players frequently see their species identity
+  const classMult = boon.classIds ? 1.45 : 1.0;
+
+  return {
+    weight: Math.max(1, base * synergyMult * classMult),
+    hasSynergy,
+  };
 }
 
 export function rollBoonOffer(
@@ -42,27 +102,43 @@ export function rollBoonOffer(
   if (pool.length === 0) return null;
 
   const rng = nextOfferRng(state);
+  const derived = computeDerivedStats(state, data);
+  const tagCounts = getBuildTagCounts(state, data);
   const remaining = [...pool];
   const choices: string[] = [];
+  const synergyIds: string[] = [];
+  const usedCategories = new Set<string>();
 
   while (choices.length < 3 && remaining.length > 0) {
     let totalWeight = 0;
-    for (const b of remaining) totalWeight += rarityWeight(b, source);
+    const weights = remaining.map((b) => {
+      const info = cardDrawWeight(b, source, state.player.level, derived.effectiveStats.LUK, tagCounts);
+      // Soft category diversity so the 3 cards feel distinct (e.g. Stat + Mutation + Capstone/Skill)
+      const divMult = usedCategories.has(b.category) ? 0.52 : 1.0;
+      const w = info.weight * divMult;
+      totalWeight += w;
+      return { w, hasSynergy: info.hasSynergy };
+    });
+
     let roll = rng.float(0, totalWeight);
     let pickedIdx = 0;
     for (let i = 0; i < remaining.length; i++) {
-      roll -= rarityWeight(remaining[i]!, source);
+      roll -= weights[i]!.w;
       if (roll <= 0) {
         pickedIdx = i;
         break;
       }
     }
+
     const chosen = remaining.splice(pickedIdx, 1)[0]!;
+    const chosenMeta = weights[pickedIdx]!;
     choices.push(chosen.id);
+    usedCategories.add(chosen.category);
+    if (chosenMeta.hasSynergy) synergyIds.push(chosen.id);
   }
 
   saveOfferRng(state, rng.getState());
-  return { source, choices };
+  return { source, choices, synergyIds };
 }
 
 export function enqueueOffer(state: GameState, data: GameData, source: 'levelup' | 'chest'): void {
@@ -105,9 +181,13 @@ export function pickBoon(state: GameState, data: GameData, boonId: string): bool
   const nextDerived = computeDerivedStats(state, data);
   if (nextDerived.maxHp > prevDerived.maxHp) {
     state.player.hp = Math.min(nextDerived.maxHp, state.player.hp + (nextDerived.maxHp - prevDerived.maxHp));
+  } else {
+    state.player.hp = Math.min(nextDerived.maxHp, state.player.hp);
   }
   if (nextDerived.maxSp > prevDerived.maxSp) {
     state.player.sp = Math.min(nextDerived.maxSp, state.player.sp + (nextDerived.maxSp - prevDerived.maxSp));
+  } else {
+    state.player.sp = Math.min(nextDerived.maxSp, state.player.sp);
   }
 
   state.stats.boonsPicked += 1;
@@ -116,7 +196,7 @@ export function pickBoon(state: GameState, data: GameData, boonId: string): bool
     x: state.player.x,
     y: state.player.y,
     text: data.names.boons[boonId]?.name ?? boonId,
-    color: '#fbbf24',
+    color: boon.rarity === 'legendary' ? '#f97316' : '#fbbf24',
   });
   state.events.push({ type: 'sfx', sfx: 'buff' });
 

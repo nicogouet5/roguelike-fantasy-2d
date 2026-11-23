@@ -23,6 +23,7 @@ const statEnum = z.enum(['STR', 'AGI', 'VIT', 'INT', 'DEX', 'LUK']);
 const weaponEnum = z.enum(['greatsword', 'katana', 'shield_lance', 'amber_staff', 'bone_bow']);
 const archetypeEnum = z.enum(['colossus', 'glass_cannon', 'tank', 'mage', 'archer']);
 const biomeEnum = z.enum(['jungle', 'volcano', 'canyon']);
+const buildTagEnum = z.enum(['fire', 'crit', 'speed', 'tank', 'bleed', 'arcane']);
 const sfxEnum = z.enum([
   'greatsword',
   'katana',
@@ -44,6 +45,12 @@ const sfxEnum = z.enum([
 
 const boonModsSchema = z
   .object({
+    str: z.number().int().optional(),
+    agi: z.number().int().optional(),
+    vit: z.number().int().optional(),
+    int: z.number().int().optional(),
+    dex: z.number().int().optional(),
+    luk: z.number().int().optional(),
     atkPct: z.number().optional(),
     matkPct: z.number().optional(),
     aspdPct: z.number().optional(),
@@ -60,6 +67,14 @@ const boonModsSchema = z
     skillPowerPct: z.number().optional(),
     areaPct: z.number().optional(),
     extraProjectiles: z.number().int().optional(),
+    thornsRatio: z.number().optional(),
+    hpToAtkRatio: z.number().optional(),
+    berserkMaxPct: z.number().optional(),
+    bleedOnHitChance: z.number().optional(),
+    damageVsBleedingPct: z.number().optional(),
+    critLightningRatio: z.number().optional(),
+    fireBurstOnHitChance: z.number().optional(),
+    hornRangePct: z.number().optional(),
   })
   .strict();
 
@@ -100,6 +115,7 @@ const skillSchema = z.object({
   id: z.string().min(1),
   template: z.enum([
     'melee_arc',
+    'line_pierce',
     'leap_slam',
     'dash_slash',
     'nova',
@@ -117,6 +133,8 @@ const skillSchema = z.object({
   cooldownMs: z.number().nonnegative(),
   castMs: z.number().nonnegative(),
   range: z.number().nonnegative(),
+  rangePerLevel: z.number().nonnegative().optional(),
+  lineWidth: z.number().positive().optional(),
   radius: z.number().positive().optional(),
   atkMult: z.number().positive().optional(),
   matkMult: z.number().positive().optional(),
@@ -178,8 +196,9 @@ const mapSchema = z.object({
 
 const boonSchema = z.object({
   id: z.string().min(1),
-  category: z.enum(['mutation', 'skill', 'relic']),
-  rarity: z.enum(['common', 'rare', 'epic']),
+  category: z.enum(['stat', 'mutation', 'skill', 'relic', 'capstone']),
+  rarity: z.enum(['common', 'rare', 'epic', 'legendary']),
+  tags: z.array(buildTagEnum).min(1),
   classIds: z.array(z.string().min(1)).optional(),
   maxRank: z.number().int().positive(),
   relicId: z.string().optional(),
@@ -219,6 +238,7 @@ const namesSchema = z.object({
   elements: z.record(elementEnum, z.string().min(1)),
   weapons: z.record(weaponEnum, z.string().min(1)),
   archetypes: z.record(archetypeEnum, z.string().min(1)),
+  tags: z.record(buildTagEnum, z.string().min(1)),
   classes: z.record(z.string(), nameDescSchema),
   skills: z.record(z.string(), nameDescSchema),
   mobs: z.record(z.string(), z.string().min(1)),

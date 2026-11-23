@@ -4,10 +4,10 @@ import { audioManager } from '../audio/synth.ts';
 import { pickBoon, rerollOffer, skipOffer } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
 import { loadGameData } from '../core/data.ts';
-import { allocateStat, createGameState, stepGame, usePotion } from '../core/engine.ts';
+import { createGameState, stepGame, usePotion } from '../core/engine.ts';
 import { gridToScreen, ISO_TILE_WIDTH, screenToGrid } from '../core/iso.ts';
 import { cast, findNearestMob } from '../core/skills.ts';
-import type { GameState, StatKey } from '../core/types.ts';
+import type { ElementName, GameState } from '../core/types.ts';
 import type { GameHud } from './hud.ts';
 import {
   AfterimagePool,
@@ -27,6 +27,26 @@ interface MobVisual {
   baseScale: number;
 }
 
+interface HornThrustFx {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  level: number;
+  element: ElementName;
+  lifeMs: number;
+  maxLifeMs: number;
+}
+
+interface LightningFx {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  lifeMs: number;
+  maxLifeMs: number;
+}
+
 export class GameScene extends Phaser.Scene {
   private gameData!: GameData;
   private state: GameState | null = null;
@@ -44,6 +64,9 @@ export class GameScene extends Phaser.Scene {
   private projSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private dropSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private telegraphGraphics: Phaser.GameObjects.Graphics | null = null;
+  private lineFxGraphics: Phaser.GameObjects.Graphics | null = null;
+  private hornThrusts: HornThrustFx[] = [];
+  private lightningArcs: LightningFx[] = [];
 
   private particles!: ParticlePool;
   private damageText!: DamageTextPool;
@@ -76,6 +99,8 @@ export class GameScene extends Phaser.Scene {
     this.afterimages = new AfterimagePool(this);
     this.telegraphGraphics = this.add.graphics();
     this.telegraphGraphics.setDepth(15);
+    this.lineFxGraphics = this.add.graphics();
+    this.lineFxGraphics.setDepth(1400);
 
     this.cameras.main.setBackgroundColor('#141c15');
     this.cameras.main.setRoundPixels(true);
@@ -182,12 +207,6 @@ export class GameScene extends Phaser.Scene {
     this.hud?.sync(this.state, true);
   }
 
-  handleAllocateStat(stat: StatKey): void {
-    if (!this.state) return;
-    allocateStat(this.state, this.gameData, stat);
-    this.hud?.sync(this.state, true);
-  }
-
   handlePickBoon(boonId: string): void {
     if (!this.state) return;
     pickBoon(this.state, this.gameData, boonId);
@@ -253,6 +272,9 @@ export class GameScene extends Phaser.Scene {
     for (const d of this.dropSprites.values()) d.destroy();
     this.dropSprites.clear();
     this.telegraphGraphics?.clear();
+    this.lineFxGraphics?.clear();
+    this.hornThrusts = [];
+    this.lightningArcs = [];
     this.particles.clear();
     this.damageText.clear();
     this.slashFx.clear();
@@ -355,6 +377,7 @@ export class GameScene extends Phaser.Scene {
     this.damageText.update(dtMs);
     this.slashFx.update(dtMs);
     this.afterimages.update(dtMs);
+    this.updateLineFx(dtMs);
 
     if (this.hitstopMs > 0) {
       this.hitstopMs -= dtMs;
@@ -398,6 +421,36 @@ export class GameScene extends Phaser.Scene {
           const sdx = dx - dy;
           const sdy = (dx + dy) * 0.5;
           this.slashFx.spawnSlash(p.x, p.y, Math.atan2(sdy, sdx), ev.radius, ev.element);
+          break;
+        }
+        case 'horn_thrust': {
+          const p0 = gridToScreen(ev.x, ev.y);
+          const p1 = gridToScreen(ev.endX, ev.endY);
+          this.hornThrusts.push({
+            x0: p0.x,
+            y0: p0.y - 16,
+            x1: p1.x,
+            y1: p1.y - 12,
+            level: ev.level,
+            element: ev.element,
+            lifeMs: 250,
+            maxLifeMs: 250,
+          });
+          this.particles.burst(p1.x, p1.y - 10, ev.element, 6, 95);
+          break;
+        }
+        case 'lightning_arc': {
+          const p0 = gridToScreen(ev.fromX, ev.fromY);
+          const p1 = gridToScreen(ev.toX, ev.toY);
+          this.lightningArcs.push({
+            x0: p0.x,
+            y0: p0.y - 22,
+            x1: p1.x,
+            y1: p1.y - 22,
+            lifeMs: 190,
+            maxLifeMs: 190,
+          });
+          this.particles.burst(p1.x, p1.y - 18, 'Wind', 6, 110);
           break;
         }
         case 'impact': {
@@ -696,6 +749,93 @@ export class GameScene extends Phaser.Scene {
         this.telegraphGraphics.fillStyle(col, 0.14 + progress * 0.28);
         this.telegraphGraphics.fillEllipse(pos.x, pos.y, rx * 2 * progress, ry * 2 * progress);
       }
+    }
+  }
+
+  private updateLineFx(dtMs: number): void {
+    if (!this.lineFxGraphics) return;
+    this.lineFxGraphics.clear();
+
+    // Twin growing horn-lances thrust VFX (Jarvan IV Q style)
+    for (let i = this.hornThrusts.length - 1; i >= 0; i--) {
+      const fx = this.hornThrusts[i]!;
+      fx.lifeMs -= dtMs;
+      if (fx.lifeMs <= 0) {
+        this.hornThrusts.splice(i, 1);
+        continue;
+      }
+      const p = 1 - fx.lifeMs / fx.maxLifeMs;
+      // Fast snap extension (0..28%), hold briefly, smooth retract (55..100%)
+      const ext = p < 0.28 ? p / 0.28 : p < 0.55 ? 1.0 : Math.max(0.15, 1 - (p - 0.55) / 0.45);
+      const alpha = Math.min(1, (1 - p) * 1.5);
+      const dx = fx.x1 - fx.x0;
+      const dy = fx.y1 - fx.y0;
+      const len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len;
+      const uy = dy / len;
+      const nx = -uy;
+      const ny = ux;
+
+      const tipX = fx.x0 + dx * ext;
+      const tipY = fx.y0 + dy * ext;
+      const baseSpread = 6 + Math.min(4, fx.level * 0.4);
+      const hornThick = 3 + Math.min(3.5, fx.level * 0.35);
+
+      // Golden piercing shockwave beam in center
+      this.lineFxGraphics.lineStyle(hornThick * 2.4, ELEMENT_COLORS_HEX[fx.element], alpha * 0.35);
+      this.lineFxGraphics.lineBetween(fx.x0, fx.y0, tipX, tipY);
+
+      // Left & right twin ivory-steel extending horn-lances converging toward the piercing tip!
+      for (const side of [-1, 1] as const) {
+        const bx = fx.x0 + nx * side * baseSpread;
+        const by = fx.y0 + ny * side * baseSpread;
+        const tx = tipX + nx * side * 2.2;
+        const ty = tipY + ny * side * 2.2;
+        // Dark outline
+        this.lineFxGraphics.lineStyle(hornThick + 2.5, 0x1c1917, alpha * 0.9);
+        this.lineFxGraphics.lineBetween(bx, by, tx, ty);
+        // Ivory horn shaft
+        this.lineFxGraphics.lineStyle(hornThick, 0xf5f5f4, alpha);
+        this.lineFxGraphics.lineBetween(bx, by, tx, ty);
+        // Glowing golden-white spear edge
+        this.lineFxGraphics.lineStyle(Math.max(1.5, hornThick * 0.45), 0xfde047, alpha);
+        this.lineFxGraphics.lineBetween(bx + ux * (len * 0.35 * ext), by + uy * (len * 0.35 * ext), tx, ty);
+      }
+
+      // Piercing arrowhead burst at tip
+      this.lineFxGraphics.fillStyle(0xffffff, alpha);
+      this.lineFxGraphics.fillCircle(tipX, tipY, 3.2 + Math.min(2.5, fx.level * 0.25));
+    }
+
+    // Chain lightning arcs (Tormenta Crítica capstone)
+    for (let i = this.lightningArcs.length - 1; i >= 0; i--) {
+      const arc = this.lightningArcs[i]!;
+      arc.lifeMs -= dtMs;
+      if (arc.lifeMs <= 0) {
+        this.lightningArcs.splice(i, 1);
+        continue;
+      }
+      const alpha = arc.lifeMs / arc.maxLifeMs;
+      const mx1 = arc.x0 + (arc.x1 - arc.x0) * 0.33 + (Math.random() - 0.5) * 18;
+      const my1 = arc.y0 + (arc.y1 - arc.y0) * 0.33 + (Math.random() - 0.5) * 14;
+      const mx2 = arc.x0 + (arc.x1 - arc.x0) * 0.66 + (Math.random() - 0.5) * 18;
+      const my2 = arc.y0 + (arc.y1 - arc.y0) * 0.66 + (Math.random() - 0.5) * 14;
+
+      this.lineFxGraphics.lineStyle(5, 0x38bdf8, alpha * 0.55);
+      this.lineFxGraphics.beginPath();
+      this.lineFxGraphics.moveTo(arc.x0, arc.y0);
+      this.lineFxGraphics.lineTo(mx1, my1);
+      this.lineFxGraphics.lineTo(mx2, my2);
+      this.lineFxGraphics.lineTo(arc.x1, arc.y1);
+      this.lineFxGraphics.strokePath();
+
+      this.lineFxGraphics.lineStyle(2, 0xffffff, alpha);
+      this.lineFxGraphics.beginPath();
+      this.lineFxGraphics.moveTo(arc.x0, arc.y0);
+      this.lineFxGraphics.lineTo(mx1, my1);
+      this.lineFxGraphics.lineTo(mx2, my2);
+      this.lineFxGraphics.lineTo(arc.x1, arc.y1);
+      this.lineFxGraphics.strokePath();
     }
   }
 }

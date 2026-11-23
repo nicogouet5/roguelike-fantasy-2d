@@ -1,7 +1,8 @@
 import { getDinoPreviewDataUrl, getDinoPreviewFrames } from '../assets/pixelArt.ts';
+import { getBuildTagCounts } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
-import { computeDerivedStats } from '../core/stats.ts';
-import type { GameState, StatKey } from '../core/types.ts';
+import { computeDerivedStats, getBasicAttackRange } from '../core/stats.ts';
+import type { BuildTag, GameState, StatKey } from '../core/types.ts';
 
 export interface HudCallbacks {
   onStartRun: (classId: string, seed: string, autoCast: boolean) => void;
@@ -10,7 +11,6 @@ export interface HudCallbacks {
   onToggleAutoAttack: () => void;
   onToggleAutoCast: () => void;
   onToggleMute: () => void;
-  onAllocateStat: (stat: StatKey) => void;
   onPickBoon: (boonId: string) => void;
   onRerollOffer: () => void;
   onSkipOffer: () => void;
@@ -391,7 +391,6 @@ export class GameHud {
     // Status Card
     const hpPct = Math.round((player.hp / Math.max(1, derived.maxHp)) * 100);
     const spPct = Math.round((player.sp / Math.max(1, derived.maxSp)) * 100);
-    const statBadge = player.statPoints > 0 ? `<span class="alert-pill">+${player.statPoints} Stats [C]</span>` : '';
 
     const buffLabels: Record<string, string> = {
       tyrant_fury: 'Furia Tirano',
@@ -420,7 +419,6 @@ export class GameHud {
             <strong>${clsName}</strong>
             <span>Nv ${player.level}</span>
             <span class="amber-tag">◆ ${player.amber}</span>
-            ${statBadge}
           </div>
           <div class="bar-row hp"><div class="bar-fill" style="width:${hpPct}%"></div><span>HP ${Math.ceil(player.hp)} / ${derived.maxHp}</span></div>
           <div class="bar-row sp"><div class="bar-fill" style="width:${spPct}%"></div><span>SP ${Math.floor(player.sp)} / ${derived.maxSp}</span></div>
@@ -436,7 +434,7 @@ export class GameHud {
       <div class="toggle-pills">
         <button class="pill ${player.autoAttack ? 'on' : ''}" id="pill-auto-atk">Auto-Atk</button>
         <button class="pill ${player.autoCast ? 'on' : ''}" id="pill-auto-cast">Auto-Cast [R]</button>
-        <button class="pill" id="pill-stats">Stats [C]</button>
+        <button class="pill" id="pill-stats">Build [C]</button>
         <button class="pill ${!this.muted ? 'on' : ''}" id="pill-audio">${this.muted ? 'Sin Audio' : 'Audio [M]'}</button>
       </div>
     `;
@@ -584,21 +582,56 @@ export class GameHud {
 
   private renderOfferModal(state: GameState): void {
     const offer = state.pendingOffer!;
-    const title = offer.source === 'chest' ? 'Cofre de Ámbar · Elige una Reliquia o Mejora' : '¡Subida de Nivel! · Elige una Bendición';
+    const tagCounts = getBuildTagCounts(state, this.data);
+    const activeTags = (Object.entries(tagCounts) as [BuildTag, number][])
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1]);
+
+    const buildBarHtml =
+      activeTags.length > 0
+        ? `<div class="offer-build-bar">Tu build (más prob. de sinergia): ${activeTags
+            .map(([t, c]) => `<span class="tag-pill active">${this.data.names.tags[t]} ×${c}</span>`)
+            .join('')}</div>`
+        : `<div class="offer-build-bar muted">Tus elecciones aumentan la probabilidad de cartas con las mismas sinergias.</div>`;
+
+    const title =
+      offer.source === 'chest'
+        ? 'Cofre de Ámbar · Elige una Reliquia o Sinergia'
+        : `¡Nivel ${state.player.level}! · Construye tu Build`;
+
+    const catLabels: Record<string, string> = {
+      stat: 'Atributo',
+      mutation: 'Mutación',
+      skill: 'Especialización',
+      relic: 'Reliquia Fósil',
+      capstone: '★ Piedra Angular',
+    };
+    const rarityLabels: Record<string, string> = {
+      common: 'Común',
+      rare: 'Rara',
+      epic: 'Épica',
+      legendary: 'Legendaria',
+    };
+
     const cards = offer.choices
       .map((bid, idx) => {
         const boon = this.data.boonsById[bid]!;
         const info = this.data.names.boons[bid]!;
         const rank = (state.boonRanks[bid] ?? 0) + 1;
-        const catLabel = boon.category === 'relic' ? 'Reliquia Fósil' : boon.category === 'skill' ? 'Especialización' : 'Mutación';
+        const isSynergy = offer.synergyIds.includes(bid);
+        const tagsHtml = boon.tags
+          .map((t) => `<span class="tag-pill ${tagCounts[t] > 0 ? 'active' : ''}">${this.data.names.tags[t]}</span>`)
+          .join('');
         return `
           <button class="offer-card rarity-${boon.rarity}" data-boon="${bid}">
             <div class="offer-top">
-              <span class="offer-key">[${idx + 1}]</span>
-              <span class="offer-cat">${catLabel} · Rango ${rank}/${boon.maxRank}</span>
+              <span class="offer-key">[${idx + 1}] ${rarityLabels[boon.rarity]}</span>
+              <span class="offer-cat">${catLabels[boon.category]} · ${rank}/${boon.maxRank}</span>
             </div>
+            ${isSynergy ? '<div class="synergy-ribbon">★ SINERGIA CON TU BUILD</div>' : ''}
             <h3>${info.name}</h3>
             <p>${info.desc}</p>
+            <div class="offer-tags">${tagsHtml}</div>
           </button>
         `;
       })
@@ -607,6 +640,7 @@ export class GameHud {
     this.offerModal.innerHTML = `
       <div class="modal-card offer-wrap">
         <h2>${title}</h2>
+        ${buildBarHtml}
         <div class="offer-grid">${cards}</div>
         <div class="offer-footer">
           <button class="secondary-btn" id="btn-reroll" ${state.rerolls <= 0 ? 'disabled' : ''}>🎲 Renovar (${state.rerolls})</button>
@@ -624,33 +658,45 @@ export class GameHud {
 
   private renderStatsDrawer(state: GameState): void {
     const derived = computeDerivedStats(state, this.data);
-    const p = state.player;
+    const tagCounts = getBuildTagCounts(state, this.data);
+    const activeTags = (Object.entries(tagCounts) as [BuildTag, number][])
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1]);
+
     const rows = STAT_KEYS.map(
       (k) => `
       <div class="stat-row">
         <span>${k}</span>
-        <strong>${p.stats[k]}</strong>
-        <button class="mini-btn" data-stat="${k}" ${p.statPoints <= 0 ? 'disabled' : ''}>+</button>
+        <strong>${derived.effectiveStats[k]}</strong>
       </div>
     `
     ).join('');
 
-    const relicsHtml =
-      state.relics.length === 0
-        ? '<p class="muted">Aún no recoges Reliquias Fósiles.</p>'
-        : state.relics
-            .map((rid) => {
-              const r = this.data.names.relics[rid]!;
-              return `<div class="relic-item"><strong>${r.name}</strong> — ${r.desc}</div>`;
-            })
-            .join('');
+    const tagsHtml =
+      activeTags.length === 0
+        ? '<p class="muted">Elige mejoras al subir de nivel para potenciar sinergias.</p>'
+        : `<div class="offer-tags">${activeTags
+            .map(([t, c]) => `<span class="tag-pill active">${this.data.names.tags[t]} ×${c}</span>`)
+            .join('')}</div>`;
+
+    const pickedBoonsHtml = Object.entries(state.boonRanks)
+      .filter(([, r]) => r > 0)
+      .map(([bid, r]) => {
+        const info = this.data.names.boons[bid];
+        return `<div class="relic-item"><strong>${info?.name ?? bid}</strong> (Nv ${r})</div>`;
+      })
+      .join('');
+
+    const hornRow =
+      state.player.classId === 'triceratops'
+        ? `<div>Cuernos: <strong>${getBasicAttackRange(state, this.data).toFixed(1)} m</strong></div>`
+        : '';
 
     this.statsDrawer.innerHTML = `
       <div class="drawer-head">
-        <h3>Estadísticas y Reliquias</h3>
+        <h3>Build y Sinergias</h3>
         <button class="mini-btn" id="close-stats">✕</button>
       </div>
-      <div class="drawer-points">Puntos disponibles: <strong>${p.statPoints}</strong></div>
       <div class="stat-list">${rows}</div>
       <div class="derived-grid">
         <div>ATK: <strong>${derived.atk}</strong></div>
@@ -659,15 +705,15 @@ export class GameHud {
         <div>ASPD: <strong>${derived.aspd.toFixed(2)}/s</strong></div>
         <div>CRIT: <strong>${Math.round(derived.critChance * 100)}%</strong></div>
         <div>VEL: <strong>${derived.moveSpeed.toFixed(1)}</strong></div>
+        ${hornRow}
       </div>
-      <h4>Reliquias Fósiles (${state.relics.length})</h4>
-      <div class="relic-list">${relicsHtml}</div>
+      <h4>Sinergias Activas</h4>
+      ${tagsHtml}
+      <h4>Mejoras y Reliquias (${state.stats.boonsPicked})</h4>
+      <div class="relic-list">${pickedBoonsHtml || '<p class="muted">Sin mejoras aún.</p>'}</div>
     `;
 
     this.statsDrawer.querySelector('#close-stats')!.addEventListener('click', () => this.toggleStatsDrawer());
-    this.statsDrawer.querySelectorAll<HTMLButtonElement>('[data-stat]').forEach((btn) => {
-      btn.addEventListener('click', () => this.cb.onAllocateStat(btn.dataset.stat as StatKey));
-    });
   }
 
   private renderSummaryModal(state: GameState): void {

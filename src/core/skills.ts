@@ -46,9 +46,8 @@ export function grantPlayerExp(state: GameState, data: GameData, amount: number)
     player.exp -= player.expToNext;
     player.level += 1;
     player.expToNext = expRequiredForLevel(player.level);
-    player.statPoints += 4;
 
-    // Auto-growth of 1 primary species stat per level so each dino scales distinctively
+    // Automatic species stat growth per level (build customization happens via 1-of-3 offers!)
     const growthStat = cls.statGrowth[(player.level - 2) % cls.statGrowth.length]!;
     player.stats[growthStat] += 1;
 
@@ -56,18 +55,19 @@ export function grantPlayerExp(state: GameState, data: GameData, amount: number)
     player.hp = derived.maxHp;
     player.sp = derived.maxSp;
 
+    const levelMsg =
+      player.classId === 'triceratops' ? `¡Nivel ${player.level}! Cuernos +Alcance` : `¡Nivel ${player.level}!`;
     state.events.push({
       type: 'notice',
       x: player.x,
       y: player.y,
-      text: `¡Nivel ${player.level}!`,
+      text: levelMsg,
       color: '#fde047',
     });
     state.events.push({ type: 'sfx', sfx: 'levelup' });
 
-    if (player.level % 2 === 0) {
-      enqueueOffer(state, data, 'levelup');
-    }
+    // Every level-up offers 1-of-3 Brotato/Hades style build cards!
+    enqueueOffer(state, data, 'levelup');
   }
 }
 
@@ -107,10 +107,11 @@ export function damageMob(
   const elemMult = getElementMultiplier(data.elementMatrix, element, mobDef.element);
   const isCrit = options?.forceCrit ?? (isPhysical && rng.next() < derived.critChance);
   const critMult = isCrit ? derived.critDamage : 1.0;
+  const bleedBonusMult = mob.bleedMs > 0 && derived.damageVsBleedingPct > 0 ? 1 + derived.damageVsBleedingPct : 1.0;
   const variance = rng.float(0.93, 1.07);
   const ignoreDef = Math.min(0.85, (options?.ignoreDefRatio ?? 0) + derived.ignoreDef);
 
-  const scaledRaw = rawDamage * elemMult * critMult * variance;
+  const scaledRaw = rawDamage * elemMult * critMult * bleedBonusMult * variance;
   const def = isPhysical ? mobDef.def : mobDef.mdef;
   const dealt = mitigateDamage(scaledRaw, def, Math.floor(def * 0.15), isPhysical, ignoreDef);
 
@@ -161,32 +162,80 @@ export function damageMob(
     fromPlayer: true,
   });
 
-  // On-hit relic hooks
-  if (options?.allowRelics !== false && mob.hp > 0) {
-    for (const relicId of state.relics) {
-      const relic = data.relicsById[relicId];
-      if (!relic || relic.hook !== 'onHit') continue;
-      if (rng.next() < relic.chance) {
-        if (relic.bonusDamageRatio) {
-          const bonus = Math.max(1, Math.round(derived.atk * relic.bonusDamageRatio));
-          mob.hp = Math.max(0, mob.hp - bonus);
-          state.stats.damageDealt += bonus;
-          state.events.push({
-            type: 'damage',
-            targetId: mob.id,
-            x: mob.x + 0.15,
-            y: mob.y - 0.15,
-            amount: bonus,
-            element: relic.element,
-            isCrit: false,
-            isWeakness: false,
-            fromPlayer: true,
-          });
-          state.events.push({ type: 'impact', x: mob.x, y: mob.y, radius: 1.0, element: relic.element, heavy: false });
+  // On-hit capstone & relic hooks
+  if (options?.allowRelics !== false) {
+    // Bleed-on-hit synergy (Garras Dentadas / Cosecha Carmesí)
+    if (mob.hp > 0 && derived.bleedOnHitChance > 0 && rng.next() < derived.bleedOnHitChance) {
+      mob.bleedMs = Math.max(mob.bleedMs, 3200);
+      mob.bleedDps = Math.max(mob.bleedDps, Math.round(Math.max(derived.atk, derived.matk) * 0.48));
+    }
+
+    // Crit Chain Lightning capstone (Tormenta Crítica)
+    if (isCrit && derived.critLightningRatio > 0) {
+      let chainTarget: MobEntity | null = null;
+      let chainDist = 4.8;
+      for (const other of state.mobs) {
+        if (other.id === mob.id || other.hp <= 0) continue;
+        const d = Math.hypot(other.x - mob.x, other.y - mob.y);
+        if (d <= chainDist) {
+          chainDist = d;
+          chainTarget = other;
         }
-        if (relic.bleedMs) {
-          mob.bleedMs = Math.max(mob.bleedMs, relic.bleedMs);
-          mob.bleedDps = Math.max(mob.bleedDps, Math.round(derived.atk * 0.4));
+      }
+      if (chainTarget) {
+        state.events.push({
+          type: 'lightning_arc',
+          fromX: mob.x,
+          fromY: mob.y,
+          toX: chainTarget.x,
+          toY: chainTarget.y,
+        });
+        state.events.push({ type: 'sfx', sfx: 'wind' });
+        damageMob(state, data, chainTarget, dealt * derived.critLightningRatio, 'Wind', false, {
+          allowRelics: false,
+        });
+      }
+    }
+
+    // Volcanic Core Fire Burst capstone (Núcleo Volcánico)
+    if (derived.fireBurstOnHitChance > 0 && rng.next() < derived.fireBurstOnHitChance) {
+      const blastR = 2.1 * derived.areaMult;
+      state.events.push({ type: 'impact', x: mob.x, y: mob.y, radius: blastR, element: 'Fire', heavy: false });
+      const blastRaw = Math.max(derived.atk, derived.matk) * 0.65;
+      for (const other of [...state.mobs]) {
+        if (other.hp <= 0) continue;
+        if (Math.hypot(other.x - mob.x, other.y - mob.y) <= blastR) {
+          damageMob(state, data, other, blastRaw, 'Fire', false, { allowRelics: false });
+        }
+      }
+    }
+
+    if (mob.hp > 0) {
+      for (const relicId of state.relics) {
+        const relic = data.relicsById[relicId];
+        if (!relic || relic.hook !== 'onHit') continue;
+        if (rng.next() < relic.chance) {
+          if (relic.bonusDamageRatio) {
+            const bonus = Math.max(1, Math.round(derived.atk * relic.bonusDamageRatio));
+            mob.hp = Math.max(0, mob.hp - bonus);
+            state.stats.damageDealt += bonus;
+            state.events.push({
+              type: 'damage',
+              targetId: mob.id,
+              x: mob.x + 0.15,
+              y: mob.y - 0.15,
+              amount: bonus,
+              element: relic.element,
+              isCrit: false,
+              isWeakness: false,
+              fromPlayer: true,
+            });
+            state.events.push({ type: 'impact', x: mob.x, y: mob.y, radius: 1.0, element: relic.element, heavy: false });
+          }
+          if (relic.bleedMs) {
+            mob.bleedMs = Math.max(mob.bleedMs, relic.bleedMs);
+            mob.bleedDps = Math.max(mob.bleedDps, Math.round(derived.atk * 0.4));
+          }
         }
       }
     }
@@ -495,6 +544,50 @@ function castPlayerSkill(
           hits += 1;
           totalDamage += res.dealt;
         }
+      }
+      break;
+    }
+
+    case 'line_pierce': {
+      // Triceratops growing horn-lances thrust (Jarvan IV Q style): pierces ALL mobs along the line!
+      const levelBonus = (player.level - 1) * (skill.rangePerLevel ?? 0);
+      const reach =
+        (skill.range + levelBonus) * derived.hornRangeMult * (isBasic ? 1 + (derived.areaMult - 1) * 0.5 : derived.areaMult);
+      const endX = player.x + dirX * reach;
+      const endY = player.y + dirY * reach;
+      const halfWidth = (skill.lineWidth ?? 0.9) * 0.55 + Math.min(0.35, (player.level - 1) * 0.03);
+      const pierceRatio = Math.min(0.65, (skill.ignoreDefRatio ?? 0.3) + (player.level - 1) * 0.02);
+
+      state.events.push({
+        type: 'horn_thrust',
+        x: player.x,
+        y: player.y,
+        endX,
+        endY,
+        angle,
+        length: reach,
+        level: player.level,
+        element: skill.element,
+      });
+
+      for (const mob of [...state.mobs]) {
+        if (mob.hp <= 0) continue;
+        const rx = mob.x - player.x;
+        const ry = mob.y - player.y;
+        const along = rx * dirX + ry * dirY;
+        const mobPad = mob.isBoss ? 0.95 : 0.48;
+        if (along < -0.25 || along > reach + mobPad) continue;
+        const perp = Math.abs(rx * -dirY + ry * dirX);
+        if (perp > halfWidth + mobPad) continue;
+
+        const res = damageMob(state, data, mob, rawDamage, skill.element, skill.isPhysical, {
+          ignoreDefRatio: pierceRatio,
+          knockback: skill.knockback,
+          stunMs: skill.stunMs,
+          bleedMs: skill.bleedMs,
+        });
+        hits += 1;
+        totalDamage += res.dealt;
       }
       break;
     }

@@ -1,6 +1,6 @@
 {
   "ui": {
-    "title": "DinoBlade: Reino Jurásico",
+    "title": "DinoLike: Reino Jurásico",
     "subtitle": "Action Roguelite 2D Isométrico · Pixel Art"
   },
   "elements": {
@@ -14,7 +14,7 @@
   "weapons": {
     "greatsword": "Espadón Gigante",
     "katana": "Katanas Dobles",
-    "shield_lance": "Escudo Óseo y Lanza",
+    "shield_lance": "Cuernos-Lanza y Escudo",
     "amber_staff": "Báculo de Mago",
     "bone_bow": "Arco de Hueso"
   },
@@ -24,6 +24,14 @@
     "tank": "Tanque Herbívoro",
     "mage": "Mago Elemental",
     "archer": "Arquero Cazador"
+  },
+  "tags": {
+    "fire": "🔥 Volcán",
+    "crit": "⚡ Crítico",
+    "speed": "💨 Frenesí",
+    "tank": "🛡️ Titán",
+    "bleed": "🩸 Sangrado",
+    "arcane": "✨ Arcano"
   },
   "classes": {
     "trex": {
@@ -36,7 +44,7 @@
     },
     "triceratops": {
       "name": "Triceratops",
-      "desc": "Bastión herbívoro con escudo óseo y lanza. Aguanta oleadas enteras, embiste con sus cuernos y sacude el suelo."
+      "desc": "Bastión herbívoro cuyos cuernos crecen al subir de nivel como lanzas perforantes en línea recta. Aguanta oleadas y embiste con fuerza sísmica."
     },
     "dodo": {
       "name": "Dodo Mago",
@@ -56,7 +64,7 @@
     "raptor_flash_cut": { "name": "Corte Relámpago", "desc": "Dash ultrarrápido que atraviesa enemigos causando sangrado." },
     "raptor_katana_flurry": { "name": "Tormenta de Katanas", "desc": "Ráfaga de 4 cortes veloces con sangrado y gran crítico." },
     "raptor_predator_instinct": { "name": "Instinto Depredador", "desc": "Dispara tu velocidad de ataque, críticos y movimiento por 6.5 s." },
-    "trike_lance_basic": { "name": "Estocada Ósea", "desc": "Golpe firme con lanza y escudo que empuja." },
+    "trike_lance_basic": { "name": "Estocada de Cuernos", "desc": "Estocada perforante en línea recta que atraviesa a todos los enemigos e ignora 30% DEF. Tus cuernos crecen al subir de nivel." },
     "trike_horn_charge": { "name": "Carga de Cuernos", "desc": "Embestida blindada que arrolla, empuja y aturde en línea." },
     "trike_bone_aegis": { "name": "Égida de Placas", "desc": "Recupera 18% HP y activa escudo que reduce 55% el daño y devuelve espinas." },
     "trike_seismic_stomp": { "name": "Pisotón Sísmico", "desc": "Onda de tierra en área que daña y aturde a los enemigos cercanos." },
@@ -91,19 +99,35 @@
     "canon_dinoblade": "Cañón del Espinosaurio"
   },
   "boons": {
-    "boon_primal_might": { "name": "Fuerza Primordial", "desc": "+14% ATK y +14% MATK en esta expedición." },
-    "boon_raptor_reflex": { "name": "Reflejos de Raptor", "desc": "+15% velocidad de ataque y +8% velocidad de movimiento." },
-    "boon_saurian_carapace": { "name": "Coraza Jurásica", "desc": "+18% HP máximo y +12 DEF fija." },
-    "boon_amber_veins": { "name": "Venas de Ámbar", "desc": "+22% SP máximo, +2.5 SP/s y -8% enfriamiento." },
-    "boon_keen_fangs": { "name": "Colmillos Afilados", "desc": "+12% prob. de crítico y +25% daño crítico." },
-    "boon_blood_frenzy": { "name": "Frenesí Sangriento", "desc": "+7% robo de vida al golpear y +8% ATK." },
-    "boon_obsidian_edge": { "name": "Filo de Obsidiana", "desc": "+22% ATK/MATK e ignora 18% de DEF enemiga." },
-    "boon_amber_resonance": { "name": "Resonancia de Ámbar", "desc": "-18% enfriamiento y +20% potencia de habilidades." },
-    "boon_rex_titan_blade": { "name": "Espadón Titánico", "desc": "+24% daño de habilidades y +18% alcance/área del T-Rex." },
-    "boon_raptor_phantom_edge": { "name": "Filo Fantasma", "desc": "+10% crítico, +18% ASPD y -12% enfriamiento para Velociraptor." },
-    "boon_trike_fortress": { "name": "Muralla Viviente", "desc": "+22% HP, +18 DEF y +18% poder de habilidades del Triceratops." },
-    "boon_dodo_cataclysm": { "name": "Cataclismo del Dodo", "desc": "+20% MATK, +20% área elemental y -10% enfriamiento para el Dodo Mago." },
-    "boon_ptera_gale_quiver": { "name": "Carcaj de Vendaval", "desc": "+16% ATK/ASPD y +1 proyectil extra en ráfagas del Pteranodon." },
+    "boon_stat_str": { "name": "Fuerza Bruta (+STR)", "desc": "+5 STR y +8% ATK físico permanente." },
+    "boon_stat_agi": { "name": "Agilidad Salvaje (+AGI)", "desc": "+5 AGI, +10% velocidad de ataque y +6% velocidad de movimiento." },
+    "boon_stat_vit": { "name": "Vitalidad Jurásica (+VIT)", "desc": "+6 VIT, +14% HP máximo y +10 DEF fija." },
+    "boon_stat_int": { "name": "Sabiduría Primordial (+INT)", "desc": "+5 INT, +10% MATK y +1.8 regeneración de SP/s." },
+    "boon_stat_dex": { "name": "Puntería Fósil (+DEX)", "desc": "+5 DEX, +10% perforación de DEF y +8% alcance/área." },
+    "boon_stat_luk": { "name": "Suerte de Ámbar (+LUK)", "desc": "+6 LUK, +8% crítico y aumenta la probabilidad de ofertas Épicas y Legendarias." },
+    "boon_primal_might": { "name": "Fuerza Primordial", "desc": "+15% ATK y +15% MATK en esta expedición." },
+    "boon_raptor_reflex": { "name": "Reflejos de Raptor", "desc": "+16% velocidad de ataque y +9% velocidad de movimiento." },
+    "boon_saurian_carapace": { "name": "Coraza Jurásica", "desc": "+18% HP máximo, +14 DEF y devuelve 12% del daño recibido." },
+    "boon_amber_veins": { "name": "Venas de Ámbar", "desc": "+22% SP máximo, +2.6 SP/s y -9% enfriamiento." },
+    "boon_serrated_claws": { "name": "Garras Dentadas", "desc": "35% prob. de aplicar sangrado al golpear y +18% daño a enemigos sangrando." },
+    "boon_keen_fangs": { "name": "Colmillos Afilados", "desc": "+12% prob. de crítico y +28% daño crítico." },
+    "boon_blood_frenzy": { "name": "Frenesí Sangriento", "desc": "+7% robo de vida al golpear y +10% ATK." },
+    "boon_butcher_pact": { "name": "Pacto Carnicero", "desc": "Riesgo/Recompensa: +40% ATK y MATK, pero -18% HP máximo." },
+    "boon_immovable_colossus": { "name": "Coloso Inamovible", "desc": "Riesgo/Recompensa: +44% HP máx., +34 DEF y +20% espinas, pero -9% velocidad." },
+    "boon_projectile_overload": { "name": "Sobrecarga de Proyectiles", "desc": "Riesgo/Recompensa: +2 proyectiles extra y +18% ASPD, pero -10% daño base." },
+    "boon_obsidian_edge": { "name": "Filo de Obsidiana", "desc": "+22% ATK/MATK e ignora 22% de DEF enemiga." },
+    "boon_amber_resonance": { "name": "Resonancia de Ámbar", "desc": "-20% enfriamiento y +24% potencia de habilidades." },
+    "boon_rex_titan_blade": { "name": "Espadón Titánico", "desc": "+26% daño de habilidades y +20% alcance/área para T-Rex." },
+    "boon_raptor_phantom_edge": { "name": "Filo Fantasma", "desc": "+11% crítico, +20% ASPD y -12% enfriamiento para Velociraptor." },
+    "boon_trike_fortress": { "name": "Muralla Viviente", "desc": "+22% HP, +20 DEF y +20% poder de habilidades para Triceratops." },
+    "boon_trike_long_horns": { "name": "Cuernos de Titán", "desc": "+35% largo a la Estocada de Cuernos, +20% perforación de DEF y +14% ATK." },
+    "boon_dodo_cataclysm": { "name": "Cataclismo del Dodo", "desc": "+22% MATK, +22% área elemental y -12% enfriamiento para el Dodo Mago." },
+    "boon_ptera_gale_quiver": { "name": "Carcaj de Vendaval", "desc": "+16% ATK, +18% ASPD y +1 proyectil extra para Pteranodon." },
+    "boon_cap_crit_storm": { "name": "Sinergia: Tormenta Crítica", "desc": "Cada crítico descarga un rayo en cadena (75% daño) a un enemigo cercano. Además +12% crítico." },
+    "boon_cap_blood_harvest": { "name": "Sinergia: Cosecha Carmesí", "desc": "Todos tus golpes aplican sangrado y hacen +34% daño a enemigos sangrando. Además +6% robo de vida." },
+    "boon_cap_titan_heart": { "name": "Sinergia: Corazón de Titán", "desc": "Convierte 14% de tu HP máximo en ATK adicional. Además +24% HP máx. y +25% espinas." },
+    "boon_cap_volcanic_core": { "name": "Sinergia: Núcleo Volcánico", "desc": "38% prob. al golpear de detonar una explosión de magma en área. Además +24% área y +16% MATK." },
+    "boon_cap_berserk_fury": { "name": "Sinergia: Furia Berserker", "desc": "Cuanta menos vida tengas, ganas hasta +65% ATK y MATK. Además +18% velocidad de ataque." },
     "boon_relic_rex_fang": { "name": "Reliquia: Colmillo de Rex", "desc": "Al golpear: 28% prob. de estallido de magma. Además otorga +10% ATK permanente." },
     "boon_relic_raptor_plume": { "name": "Reliquia: Pluma de Raptor", "desc": "Al golpear: 35% prob. de aplicar sangrado. Además otorga +14% velocidad y +8% crítico." },
     "boon_relic_trike_plate": { "name": "Reliquia: Placa de Triceratops", "desc": "Al recibir daño: devuelve 35% al atacante. Además otorga +24 DEF y +14% HP máximo." },

@@ -1,8 +1,8 @@
 import { pickBoon } from './boons.ts';
 import type { GameData } from './data.ts';
-import { allocateStat, createGameState, stepGame, usePotion } from './engine.ts';
+import { createGameState, stepGame, usePotion } from './engine.ts';
 import { findNearestMob } from './skills.ts';
-import { computeDerivedStats } from './stats.ts';
+import { computeDerivedStats, getBasicAttackRange } from './stats.ts';
 import type { GameState } from './types.ts';
 
 export interface SimRunResult {
@@ -28,16 +28,13 @@ export function runHeadlessBot(
   const maxSteps = Math.floor((maxSeconds * 1000) / stepMs);
 
   for (let i = 0; i < maxSteps && state.status === 'playing'; i++) {
-    // Handle offers greedily
+    // Handle offers greedily (preferring synergy or legendary cards when offered)
     if (state.pendingOffer) {
-      const choice = state.pendingOffer.choices[0]!;
-      pickBoon(state, data, choice);
-    }
-
-    // Spend stat points on species preferred growth
-    while (state.player.statPoints > 0) {
-      const preferred = cls.statGrowth[state.player.level % cls.statGrowth.length]!;
-      allocateStat(state, data, preferred);
+      const preferred =
+        state.pendingOffer.choices.find((id) => data.boonsById[id]?.rarity === 'legendary') ??
+        state.pendingOffer.synergyIds[0] ??
+        state.pendingOffer.choices[0]!;
+      pickBoon(state, data, preferred);
     }
 
     const derived = computeDerivedStats(state, data);
@@ -68,7 +65,8 @@ export function runHeadlessBot(
         const dx = targetMob.x - state.player.x;
         const dy = targetMob.y - state.player.y;
         const dist = Math.hypot(dx, dy);
-        const idealRange = cls.isRanged ? cls.attackRange * 0.72 : cls.attackRange * 0.75;
+        const basicReach = getBasicAttackRange(state, data);
+        const idealRange = cls.isRanged ? basicReach * 0.72 : basicReach * 0.78;
         if (dist > idealRange) {
           moveX = dx;
           moveY = dy;

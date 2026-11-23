@@ -8,8 +8,13 @@ export type ArchetypeId = 'colossus' | 'glass_cannon' | 'tank' | 'mage' | 'arche
 
 export type BiomeId = 'jungle' | 'volcano' | 'canyon';
 
+export type BuildTag = 'fire' | 'crit' | 'speed' | 'tank' | 'bleed' | 'arcane';
+
+export type BoonRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
 export type SkillTemplate =
   | 'melee_arc'
+  | 'line_pierce'
   | 'leap_slam'
   | 'dash_slash'
   | 'nova'
@@ -57,6 +62,12 @@ export interface PrimaryStats {
 }
 
 export interface BoonMods {
+  str?: number;
+  agi?: number;
+  vit?: number;
+  int?: number;
+  dex?: number;
+  luk?: number;
   atkPct?: number;
   matkPct?: number;
   aspdPct?: number;
@@ -73,6 +84,14 @@ export interface BoonMods {
   skillPowerPct?: number;
   areaPct?: number;
   extraProjectiles?: number;
+  thornsRatio?: number;
+  hpToAtkRatio?: number;
+  berserkMaxPct?: number;
+  bleedOnHitChance?: number;
+  damageVsBleedingPct?: number;
+  critLightningRatio?: number;
+  fireBurstOnHitChance?: number;
+  hornRangePct?: number;
 }
 
 export interface DinoClassDef {
@@ -111,6 +130,8 @@ export interface SkillDef {
   cooldownMs: number;
   castMs: number;
   range: number;
+  rangePerLevel?: number;
+  lineWidth?: number;
   radius?: number;
   atkMult?: number;
   matkMult?: number;
@@ -172,8 +193,9 @@ export interface MapDef {
 
 export interface BoonDef {
   id: string;
-  category: 'mutation' | 'skill' | 'relic';
-  rarity: 'common' | 'rare' | 'epic';
+  category: 'stat' | 'mutation' | 'skill' | 'relic' | 'capstone';
+  rarity: BoonRarity;
+  tags: BuildTag[];
   classIds?: string[];
   maxRank: number;
   relicId?: string;
@@ -202,6 +224,7 @@ export interface ActiveBuff {
 }
 
 export interface DerivedStats {
+  effectiveStats: PrimaryStats;
   maxHp: number;
   maxSp: number;
   atk: number;
@@ -223,6 +246,11 @@ export interface DerivedStats {
   damageReduction: number;
   thornsRatio: number;
   extraProjectiles: number;
+  bleedOnHitChance: number;
+  damageVsBleedingPct: number;
+  critLightningRatio: number;
+  fireBurstOnHitChance: number;
+  hornRangeMult: number;
 }
 
 export interface PlayerEntity {
@@ -237,7 +265,6 @@ export interface PlayerEntity {
   level: number;
   exp: number;
   expToNext: number;
-  statPoints: number;
   stats: PrimaryStats;
   hp: number;
   sp: number;
@@ -370,6 +397,7 @@ export interface ZoneMap {
 export interface BoonOffer {
   source: 'levelup' | 'chest';
   choices: string[];
+  synergyIds: string[];
 }
 
 export interface CastTarget {
@@ -413,6 +441,24 @@ export type GameEvent =
       element: ElementName;
       weaponType?: WeaponType;
       fromPlayer: boolean;
+    }
+  | {
+      type: 'horn_thrust';
+      x: number;
+      y: number;
+      endX: number;
+      endY: number;
+      angle: number;
+      length: number;
+      level: number;
+      element: ElementName;
+    }
+  | {
+      type: 'lightning_arc';
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
     }
   | {
       type: 'impact';

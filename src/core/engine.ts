@@ -4,8 +4,8 @@ import type { GameData } from './data.ts';
 import { generateZoneMap, isWalkable } from './mapGen.ts';
 import { createRng, hashSeed } from './rng.ts';
 import { addPlayerBuff, cast, damageMob, damagePlayer, findNearestMob } from './skills.ts';
-import { computeDerivedStats, expRequiredForLevel } from './stats.ts';
-import type { GameState, MapDef, StatKey } from './types.ts';
+import { computeDerivedStats, expRequiredForLevel, getBasicAttackRange } from './stats.ts';
+import type { GameState, MapDef } from './types.ts';
 
 function pickWeightedMob(mapDef: MapDef, rng: ReturnType<typeof createRng>): string {
   let total = 0;
@@ -83,7 +83,6 @@ export function createGameState(
       level: 1,
       exp: 0,
       expToNext: expRequiredForLevel(1),
-      statPoints: 0,
       stats: { ...cls.baseStats },
       hp: 100,
       sp: 100,
@@ -119,7 +118,7 @@ export function createGameState(
     killsSinceChest: 0,
     boonRanks: {},
     relics: [],
-    rerolls: 2,
+    rerolls: 3,
     pendingOffer: null,
     offerQueue: [],
     stats: {
@@ -176,21 +175,6 @@ export function transitionToNextZone(state: GameState, data: GameData): boolean 
     text: data.names.maps[nextMap.id] ?? nextMap.id,
     color: '#fbbf24',
   });
-  return true;
-}
-
-export function allocateStat(state: GameState, data: GameData, stat: StatKey): boolean {
-  if (state.player.statPoints <= 0) return false;
-  const prev = computeDerivedStats(state, data);
-  state.player.statPoints -= 1;
-  state.player.stats[stat] += 1;
-  const next = computeDerivedStats(state, data);
-  if (next.maxHp > prev.maxHp) {
-    state.player.hp = Math.min(next.maxHp, state.player.hp + (next.maxHp - prev.maxHp));
-  }
-  if (next.maxSp > prev.maxSp) {
-    state.player.sp = Math.min(next.maxSp, state.player.sp + (next.maxSp - prev.maxSp));
-  }
   return true;
 }
 
@@ -342,8 +326,9 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
   // Update floating Codex pet companion
   stepCodexPet(state, data, clampedDt);
 
-  // Auto-attack & Auto-cast
-  const nearest = findNearestMob(state, Math.max(cls.attackRange + 0.4, 7.2));
+  // Auto-attack & Auto-cast (uses dynamic basic reach so Triceratops's grown horn-lances strike farther!)
+  const basicReach = getBasicAttackRange(state, data);
+  const nearest = findNearestMob(state, Math.max(basicReach + 0.4, 7.2));
   if (nearest) {
     const dist = Math.hypot(nearest.x - player.x, nearest.y - player.y);
     if (player.autoCast) {
@@ -362,7 +347,7 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
         }
       }
     }
-    if (player.autoAttack && player.basicCooldownMs <= 0 && dist <= cls.attackRange + 0.3) {
+    if (player.autoAttack && player.basicCooldownMs <= 0 && dist <= basicReach + 0.3) {
       cast(state, data, 'player', cls.basicSkillId, { x: nearest.x, y: nearest.y });
     }
   }

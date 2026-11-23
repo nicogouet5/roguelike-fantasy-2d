@@ -36,7 +36,6 @@ const hud = new GameHud(hudRoot, data, {
     const muted = audioManager.toggleMute();
     hud.setMuteState(muted);
   },
-  onAllocateStat: (stat) => gameScene.handleAllocateStat(stat),
   onPickBoon: (boonId) => gameScene.handlePickBoon(boonId),
   onRerollOffer: () => gameScene.handleRerollOffer(),
   onSkipOffer: () => gameScene.handleSkipOffer(),
