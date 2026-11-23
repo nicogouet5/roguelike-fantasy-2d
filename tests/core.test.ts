@@ -15,7 +15,7 @@ import { loadGameData } from '../src/core/data.ts';
 import { getElementMultiplier } from '../src/core/elements.ts';
 import { buyAmberPotion, createGameState, stepGame, transitionToNextZone, usePotion } from '../src/core/engine.ts';
 import { gridToScreen, screenToGrid } from '../src/core/iso.ts';
-import { generateZoneMap, hasWalkablePath } from '../src/core/mapGen.ts';
+import { generateZoneMap, hasWalkablePath, isWalkable } from '../src/core/mapGen.ts';
 import { cast, grantPlayerExp } from '../src/core/skills.ts';
 import { computeDerivedStats, getBasicAttackRange, mitigateDamage } from '../src/core/stats.ts';
 
@@ -24,7 +24,7 @@ describe('DinoBlade Core & Data Validation', () => {
 
   it('loads and validates all JSON data with Zod and complete Spanish names', () => {
     expect(data.classes.length).toBe(5);
-    expect(data.mapsByFloor.length).toBe(3);
+    expect(data.mapsByFloor.length).toBe(4);
     expect(data.skills.length).toBeGreaterThanOrEqual(20);
     expect(data.boons.length).toBeGreaterThanOrEqual(15);
     expect(data.relics.length).toBeGreaterThanOrEqual(5);
@@ -32,6 +32,7 @@ describe('DinoBlade Core & Data Validation', () => {
     expect(data.mapsByFloor.map((map) => map.paletteId)).toEqual([
       'claustro_jade_ambar',
       'puente_violeta_cobre',
+      'fortaleza_acero_coral',
       'osario_hueso_petroleo',
     ]);
     for (const map of data.mapsByFloor) {
@@ -90,7 +91,7 @@ describe('DinoBlade Core & Data Validation', () => {
     expect(pierceDmg).toBeGreaterThan(highDefDmg);
   });
 
-  it('generates deterministic connected maps across all 3 biomes and multiple seeds', () => {
+  it('generates deterministic connected scenarios across multiple seeds', () => {
     for (const seed of ['alpha', 'dinoblade-2026', 'jurassic-99']) {
       for (const mapDef of data.mapsByFloor) {
         const m1 = generateZoneMap(mapDef, seed);
@@ -264,10 +265,29 @@ describe('DinoBlade Core & Data Validation', () => {
     expect(rexPool).not.toContain('boon_projectile_overload');
   });
 
+  it('uses collision tiles for gallery walls, the bridge drop and the ossuary corners', () => {
+    for (const def of data.mapsByFloor) {
+      const zone = generateZoneMap(def, 'scenario-collision');
+      expect(zone.tiles).toContain('void');
+      expect(zone.tiles).toContain('wall');
+      expect(isWalkable(zone, 0.5, 0.5)).toBe(false);
+      expect(hasWalkablePath(zone, zone.spawn, { x: def.width / 2, y: def.height / 2 })).toBe(true);
+    }
+    const bridge = generateZoneMap(data.mapsByFloor[1]!, 'bridge');
+    expect(isWalkable(bridge, 5.5, bridge.height / 2 + 9)).toBe(true);
+    expect(isWalkable(bridge, bridge.width / 2, bridge.height / 2 + 9)).toBe(false);
+  });
+
   it('transitions to boss floor with Spinosaurus Hoja-Abisal and executes headless bot cleanly', () => {
     const state = createGameState(data, { classId: 'velociraptor', seed: 'boss-check' });
     expect(transitionToNextZone(state, data)).toBe(true);
     expect(transitionToNextZone(state, data)).toBe(true);
+    expect(state.zone.mapId).toBe('fortaleza_falla_23');
+    state.currentWave = state.totalWaves;
+    state.mobs = [];
+    state.zoneClearDelayMs = 20;
+    stepGame(state, data, 50, { moveX: 0, moveY: 0 });
+    expect(state.zone.mapId).toBe('canon_dinoblade');
     expect(state.mobs.some((m) => m.mobId === 'spinosaurus_boss' && m.isBoss)).toBe(true);
     stepGame(state, data, 50, { moveX: 1, moveY: 0 });
 

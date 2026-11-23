@@ -1,6 +1,12 @@
 import type Phaser from 'phaser';
 import type { BiomeId } from '../core/types.ts';
 import { codexFrame } from './codexArt.ts';
+import { bossSheetFrame, mobSheetFrame } from './mobSheets.ts';
+import { playableSheetFrame } from './playableSheets.ts';
+
+// Kept alongside the runtime-authored frames so the selector/gameplay art and
+// the corresponding original source contact sheets have one public asset API.
+export { PLAYABLE_SHEET_URLS } from './playableSheets.ts';
 
 export const ATLAS_KEY = 'dino_atlas';
 
@@ -564,12 +570,16 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   const body = makeRamp('#202832', '#394e53', '#577270', '#8da397');
   const belly = makeRamp('#5b6558', '#8b9176', '#d2c8a3');
   const plume = makeRamp('#49262f', '#84514a', '#c18665');
-  const by = Math.round(m.bob);
-  const lx = m.leanX * 1.35;
+  // A raptor must read as a sprint, not a walking bob.  The contact frames
+  // stay low; passing frames lengthen the body and send the tail the other way.
+  const sprintX = pose === 'walk' ? [-1.8, -0.6, 1.35, 2.0, 0.9, -1.0][frame % 6]! : 0;
+  const sprintLift = pose === 'walk' ? [0, 1, 3, 1, 0, 2][frame % 6]! : 0;
+  const by = Math.round(m.bob - sprintLift * 0.35);
+  const lx = m.leanX * 1.35 + sprintX;
 
   // Back agile leg
-  const bX = 18 + m.legB * 1.15;
-  const bY = 42 - m.liftB * 1.2;
+  const bX = 18 + m.legB * 1.15 - sprintX * 0.8;
+  const bY = 42 - m.liftB * 1.2 - sprintLift * 0.45;
   g.spline(
     [
       [19 + lx * 0.4, 29 + by, 2.2],
@@ -606,8 +616,8 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   g.px(armorX + 2, 22 + by, C_STEEL_L);
 
   // Front springy leg with lethal sickle claw
-  const fX = 22 + m.legA * 1.2;
-  const fY = 43 - m.liftA * 1.2;
+  const fX = 22 + m.legA * 1.2 + sprintX;
+  const fY = 43 - m.liftA * 1.2 - sprintLift * 0.35;
   g.spline(
     [
       [21 + lx * 0.5, 29 + by, 2.7],
@@ -940,16 +950,19 @@ function drawPteranodonFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   const wing = makeRamp('#292633', '#4e394b', '#765062');
   const bone = makeRamp('#66473c', '#9f7853', '#d7bd8b');
 
-  // Smooth continuous hovering & wingbeat!
+  // Distinct aerial poses: idle is a slow hold, movement cycles through a
+  // downstroke, recovery and broad level glide instead of merely translating.
   const hoverPhase = (frame / (pose === 'walk' ? 6 : 4)) * Math.PI * 2;
-  const hoverY = Math.round(Math.sin(hoverPhase - 0.45) * (pose === 'walk' ? 2.8 : 1.8));
-  const flap = Math.sin(hoverPhase) * (pose === 'walk' ? 9.5 : 5.0);
+  const flightPose = pose === 'walk' ? [-8.5, -2.5, 6.5, 10.0, 3.0, -5.5][frame % 6]! : Math.sin(hoverPhase) * 4.2;
+  const glide = pose === 'walk' && (frame === 2 || frame === 5);
+  const hoverY = Math.round(Math.sin(hoverPhase - 0.45) * (pose === 'walk' ? 2.2 : 1.4));
+  const flap = glide ? flightPose * 0.34 : flightPose;
   const cy = 22 + hoverY;
-  const lx = m.leanX + (pose === 'walk' ? Math.cos(hoverPhase) * 1.7 : 0);
+  const lx = m.leanX + (pose === 'walk' ? [1.8, 1.2, 0.5, 1.5, 2.2, 0.8][frame % 6]! : 0);
 
   // Ragged, load-bearing wing membranes: the tips and trailing folds move together.
-  g.polygon([[22, cy], [31, cy - 6 - flap * 0.7], [40, cy - 10 - flap], [37, cy + 2 - flap * 0.5], [31, cy + 1], [26, cy + 7]], wing.dark);
-  g.polygon([[20, cy], [11, cy - 4 + flap * 0.75], [2, cy - 9 + flap], [5, cy + 7 + flap * 0.56], [10, cy + 5 + flap * 0.5], [14, cy + 11], [20, cy + 5]], wing.mid);
+  g.polygon([[22, cy], [31, cy - 6 - flap * 0.7], [40 + (glide ? 3 : 0), cy - 10 - flap], [37 + (glide ? 2 : 0), cy + 2 - flap * 0.5], [31, cy + 1], [26, cy + 7]], wing.dark);
+  g.polygon([[20, cy], [11, cy - 4 + flap * 0.75], [2 - (glide ? 3 : 0), cy - 9 + flap], [5 - (glide ? 2 : 0), cy + 7 + flap * 0.56], [10, cy + 5 + flap * 0.5], [14, cy + 11], [20, cy + 5]], wing.mid);
   g.polygon([[9, cy - 2 + flap * 0.75], [5, cy + 6 + flap * 0.56], [10, cy + 4 + flap * 0.5], [13, cy + 9]], wing.dark);
   // Far wing membrane + golden wing bone strut
   g.spline(
@@ -1594,7 +1607,7 @@ export function getDinoPreviewFrames(spriteId: string): string[] {
         canvas = drawSpinosaurusBossFrame('idle', f);
         break;
     }
-    urls.push((codexFrame(spriteId, 'idle', f) ?? canvas).toDataURL());
+    urls.push((playableSheetFrame(spriteId, 'idle', f) ?? codexFrame(spriteId, 'idle', f) ?? canvas).toDataURL());
   }
   previewFramesCache.set(spriteId, urls);
   return urls;
@@ -1610,11 +1623,18 @@ export function buildPixelAtlas(scene: Phaser.Scene): void {
   const entries: [string, HTMLCanvasElement][] = [];
   const poses: AnimPose[] = ['idle', 'walk', 'atk'];
 
-  const addDinoAnim = (prefix: string, drawer: (pose: AnimPose, f: number) => HTMLCanvasElement): void => {
+  const addDinoAnim = (
+    prefix: string,
+    drawer: (pose: AnimPose, f: number) => HTMLCanvasElement,
+    useCodexArt = true
+  ): void => {
     for (const pose of poses) {
       const count = ANIM_COUNTS[pose];
       for (let f = 0; f < count; f++) {
-        entries.push([`${prefix}_${pose}_${f}`, codexFrame(prefix, pose, f) ?? drawer(pose, f)]);
+        const art = playableSheetFrame(prefix, pose, f)
+          ?? mobSheetFrame(prefix, pose, f)
+          ?? (useCodexArt ? codexFrame(prefix, pose, f) : undefined);
+        entries.push([`${prefix}_${pose}_${f}`, art ?? drawer(pose, f)]);
       }
     }
   };
@@ -1624,10 +1644,17 @@ export function buildPixelAtlas(scene: Phaser.Scene): void {
   addDinoAnim('dino_triceratops', drawTriceratopsFrame);
   addDinoAnim('dino_dodo', drawDodoWizardFrame);
   addDinoAnim('dino_pteranodon', drawPteranodonFrame);
-  addDinoAnim('boss_spinosaurus', drawSpinosaurusBossFrame);
+  // The boss shares the codex pixel-art language of the playable roster; the
+  // procedural drawing stays only as a fallback when the codex sheet is absent.
+  for (const pose of poses) {
+    for (let f = 0; f < ANIM_COUNTS[pose]; f++) {
+      const portrait = codexFrame('boss_spinosaurus', pose, f);
+      entries.push([`boss_spinosaurus_${pose}_${f}`, portrait ? bossSheetFrame(portrait, pose, f) : drawSpinosaurusBossFrame(pose, f)]);
+    }
+  }
 
   for (const kind of ['compy', 'raptor', 'pachy', 'spitter', 'ankylo', 'carno'] as const) {
-    addDinoAnim(`mob_${kind}`, (pose, f) => drawEnemyFrame(kind, pose, f));
+    addDinoAnim(`mob_${kind}`, (pose, f) => drawEnemyFrame(kind, pose, f), false);
   }
 
   for (let f = 0; f < 4; f++) {

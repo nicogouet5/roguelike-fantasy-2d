@@ -71,9 +71,10 @@ Status tags: **[done]** shipped · **[wip]** in progress · **[todo]** defined &
 
 ```
 Title (Dino Class Select + Animated Pixel Preview + Seed)
-  → Zone 1: Valle de Helechos (3 timed overlapping waves → auto-advance)
-  → Zone 2: Cráter de Obsidiana (4 timed overlapping waves + Elites → auto-advance)
-  → Zone 3: Cañón del Espinosaurio (2-Phase Boss: Spinosaurus Hoja-Abisal)
+  → Zone 1: Claustro Mineral (3 timed overlapping waves → auto-advance)
+  → Zone 2: Puente Quebrado (4 timed overlapping waves + Elites → auto-advance)
+  → Zone 3: Fortaleza Falla 23 (Elite-heavy waves → auto-advance)
+  → Zone 4: Osario Hundido (2-Phase Boss: Spinosaurus Hoja-Abisal)
   → Run Summary → Instant Restart
 ```
 

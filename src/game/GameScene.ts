@@ -2,14 +2,16 @@ import Phaser from 'phaser';
 import { ANIM_COUNTS, ATLAS_KEY, buildPixelAtlas, clearDinoPreviewCache, getDinoFrameName, type AnimPose } from '../assets/pixelArt.ts';
 import { codexBodyMotion } from '../assets/actorMotion.ts';
 import { preloadCodexArt, registerCodexArt } from '../assets/codexArt.ts';
+import { preloadPlayableSheets, registerPlayableSheets } from '../assets/playableSheets.ts';
+import { preloadMobSheets, registerMobSheets } from '../assets/mobSheets.ts';
 import { buildArenaArchitecture } from './arenaArchitecture.ts';
 import { audioManager } from '../audio/synth.ts';
 import { buyAmberOffer, pickBoon, rerollOffer, skipOffer } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
 import { loadGameData } from '../core/data.ts';
-import { buyAmberPotion, createGameState, stepGame, usePotion } from '../core/engine.ts';
+import { buyAmberPotion, createGameState, enterZone, stepGame, usePotion } from '../core/engine.ts';
 import { gridToScreen, ISO_TILE_WIDTH, screenToGrid } from '../core/iso.ts';
-import { cast, findNearestMob } from '../core/skills.ts';
+import { cast, findNearestMob, grantPlayerExp } from '../core/skills.ts';
 import type { ElementName, GameState } from '../core/types.ts';
 import type { GameHud } from './hud.ts';
 import { renderMapVisuals } from './mapRenderer.ts';
@@ -97,11 +99,15 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     preloadCodexArt(this);
+    preloadPlayableSheets(this);
+    preloadMobSheets(this);
   }
 
   create(): void {
     this.gameData = loadGameData();
     registerCodexArt(this);
+    registerPlayableSheets(this);
+    registerMobSheets(this);
     clearDinoPreviewCache();
     buildPixelAtlas(this);
     buildArenaArchitecture(this);
@@ -159,6 +165,26 @@ export class GameScene extends Phaser.Scene {
     this.state = createGameState(this.gameData, { classId, seed, autoCast });
     this.rebuildZoneVisuals();
     this.hud?.hideTitle();
+    this.hud?.sync(this.state, true);
+  }
+
+  handleDevLevelUp(): void {
+    if (!this.state || this.state.status !== 'playing' || this.state.pendingOffer) return;
+    grantPlayerExp(this.state, this.gameData, this.state.player.expToNext - this.state.player.exp);
+    this.consumeEvents();
+    this.hud?.sync(this.state, true);
+  }
+
+  handleDevStage(floorIndex: number): void {
+    if (!this.state || this.state.status !== 'playing' || this.state.pendingOffer) return;
+    const cleared = this.state.stats.floorsCleared;
+    if (!enterZone(this.state, this.gameData, floorIndex)) return;
+    this.state.stats.floorsCleared = cleared;
+    this.state.player.vx = 0;
+    this.state.player.vy = 0;
+    this.hornThrusts = [];
+    this.lightningArcs = [];
+    this.consumeEvents();
     this.hud?.sync(this.state, true);
   }
 
@@ -345,7 +371,8 @@ export class GameScene extends Phaser.Scene {
       this,
       zone,
       palette,
-      false
+      false,
+      isBossZone
     );
     this.tileGroup = mapVisuals.tiles;
     this.propSprites = mapVisuals.props;

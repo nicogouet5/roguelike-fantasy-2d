@@ -1,7 +1,11 @@
 {
   "ui": {
     "title": "DinoLike: Reino Jurásico",
-    "subtitle": "Action Roguelite 2D Isométrico · Pixel Art"
+    "subtitle": "Action Roguelite 2D Isométrico · Pixel Art",
+    "devTitle": "Devs · Test",
+    "devLevel": "Subir de nivel",
+    "devStage": "Ir a stage",
+    "devHint": "Conserva tu nivel y build al cambiar de stage."
   },
   "elements": {
     "Neutral": "Hueso",
@@ -88,7 +92,11 @@
     "boss_odachi_cleave": { "name": "Tajo Odachi", "desc": "Corte masivo de espada abisal." },
     "boss_hydro_wave": { "name": "Ola Cortante", "desc": "Triple onda hidro-cortante." },
     "boss_abyssal_leap": { "name": "Salto Abisal", "desc": "Salto con espada clavada en área." },
-    "boss_cross_rend": { "name": "Cruce Extinción", "desc": "Múltiples impactos volcánicos telegrafiados." }
+    "boss_cross_rend": { "name": "Cruce Extinción", "desc": "Múltiples impactos volcánicos telegrafiados." },
+    "boss_tidal_barrage": { "name": "Marea Devoradora", "desc": "Abanico de siete ondas de agua." },
+    "boss_maelstrom": { "name": "Vorágine", "desc": "Remolino enorme que arrasa el área cercana." },
+    "boss_riptide_chain": { "name": "Cadena de Resaca", "desc": "Cuatro anillos de impacto en cadena." },
+    "boss_ember_surge": { "name": "Oleada Ígnea", "desc": "Cinco proyectiles de fuego abisal." }
   },
   "mobs": {
     "compsognathus": "Compsognathus",
@@ -100,9 +108,10 @@
     "spinosaurus_boss": "Spinosaurus Hoja-Abisal"
   },
   "maps": {
-    "valle_helechos": "Valle de Helechos",
-    "crater_obsidiana": "Cráter de Obsidiana",
-    "canon_dinoblade": "Cañón del Espinosaurio"
+    "valle_helechos": "Claustro Mineral",
+    "crater_obsidiana": "Puente Quebrado",
+    "fortaleza_falla_23": "Fortaleza Falla 23",
+    "canon_dinoblade": "Osario Hundido"
   },
   "boons": {
     "boon_stat_str": { "name": "Fuerza Bruta (+STR)", "desc": "+5 STR y +8% ATK físico permanente." },

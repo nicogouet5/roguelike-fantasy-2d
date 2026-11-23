@@ -5,6 +5,11 @@ import type { AnimPose } from './pixelArt.ts';
 
 const SHEET = 'codex_combat';
 const SIZE = 96;
+// Cell 16 contains the baked reference bolt. The combat scene renders its own
+// projectile, so actor animation deliberately moves from the roar back to idle.
+const COMPY_ATK_FRAMES = [11, 11, 12, 13, 10] as const;
+const COMPY_WALK_FRAMES = [10, 11, 11, 13, 10, 10] as const;
+const SPITTER_ATK_FRAMES = [15, 15, 15, 17, 14] as const;
 const portraits: Record<string, number> = {
   dino_trex: 0,
   dino_triceratops: 1,
@@ -26,8 +31,8 @@ export function codexFrame(spriteId: string, pose: AnimPose, frame: number): HTM
   if (!sheet) return undefined;
   let index = portraits[spriteId];
   if (spriteId === 'dino_trex' && pose === 'atk') index = 5 + frame;
-  if (spriteId === 'mob_compy') index = pose === 'atk' ? [11, 11, 12, 13, 10][frame]! : pose === 'walk' ? [10, 11, 11, 13, 10, 10][frame]! : 10;
-  if (spriteId === 'mob_spitter') index = pose === 'atk' ? [15, 15, 15, 17, 14][frame]! : 14;
+  if (spriteId === 'mob_compy') index = pose === 'atk' ? COMPY_ATK_FRAMES[frame] : pose === 'walk' ? COMPY_WALK_FRAMES[frame] : 10;
+  if (spriteId === 'mob_spitter') index = pose === 'atk' ? SPITTER_ATK_FRAMES[frame] : 14;
   if (index === undefined) return undefined;
 
   const canvas = document.createElement('canvas');

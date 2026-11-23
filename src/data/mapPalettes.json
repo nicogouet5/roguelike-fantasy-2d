@@ -1,7 +1,7 @@
 [
   {
     "id": "fortaleza_acero_coral",
-    "background": "#102838",
+    "background": "#1c1424",
     "groundTint": "#6FA8C8",
     "pathTint": "#FF7666",
     "wallTint": "#9CC6DA",
@@ -10,7 +10,7 @@
   },
   {
     "id": "claustro_jade_ambar",
-    "background": "#071D1B",
+    "background": "#0c0f16",
     "groundTint": "#58B47D",
     "pathTint": "#F6CB50",
     "wallTint": "#92C8A1",
@@ -19,7 +19,7 @@
   },
   {
     "id": "puente_violeta_cobre",
-    "background": "#0A1535",
+    "background": "#24121f",
     "groundTint": "#527DDB",
     "pathTint": "#F0A34D",
     "wallTint": "#8973C9",

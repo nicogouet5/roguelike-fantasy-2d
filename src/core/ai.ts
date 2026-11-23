@@ -135,12 +135,12 @@ export function stepMobsAi(state: GameState, data: GameData, dtMs: number): void
 
       if (!mob.summonedPhase2) {
         mob.summonedPhase2 = true;
-        for (let i = 0; i < 3; i++) {
-          const angle = (i / 3) * Math.PI * 2;
+        for (let i = 0; i < 4; i++) {
+          const angle = (i / 4) * Math.PI * 2;
           const sx = mob.x + Math.cos(angle) * 3.0;
           const sy = mob.y + Math.sin(angle) * 3.0;
           if (isWalkable(state.zone, sx, sy)) {
-            spawnMob(state, data, i === 0 ? 'wild_raptor' : 'compsognathus', sx, sy, false);
+            spawnMob(state, data, i % 2 === 0 ? 'wild_raptor' : 'compsognathus', sx, sy, false);
           }
         }
       }
@@ -182,8 +182,21 @@ export function stepMobsAi(state: GameState, data: GameData, dtMs: number): void
     // Boss AI: rotate signature skills
     if (mob.isBoss) {
       let casted = false;
-      if (mob.bossPhase === 2 && !mob.cooldowns['boss_cross_rend'] && dist <= 8.2) {
+      const aim = { x: state.player.x, y: state.player.y };
+      if (mob.bossPhase === 2 && !mob.cooldowns['boss_maelstrom'] && dist <= 6.0) {
+        casted = cast(state, data, mob.id, 'boss_maelstrom', aim).ok;
+      }
+      if (!casted && mob.bossPhase === 2 && !mob.cooldowns['boss_ember_surge'] && dist >= 3.0 && dist <= 9.5) {
+        casted = cast(state, data, mob.id, 'boss_ember_surge', aim).ok;
+      }
+      if (!casted && mob.bossPhase === 2 && !mob.cooldowns['boss_cross_rend'] && dist <= 8.2) {
         casted = cast(state, data, mob.id, 'boss_cross_rend', { x: state.player.x, y: state.player.y }).ok;
+      }
+      if (!casted && !mob.cooldowns['boss_riptide_chain'] && dist >= 2.5 && dist <= 9.0) {
+        casted = cast(state, data, mob.id, 'boss_riptide_chain', aim).ok;
+      }
+      if (!casted && !mob.cooldowns['boss_tidal_barrage'] && dist >= 4.0 && dist <= 10.0) {
+        casted = cast(state, data, mob.id, 'boss_tidal_barrage', aim).ok;
       }
       if (!casted && !mob.cooldowns['boss_abyssal_leap'] && dist >= 3.2 && dist <= 7.8) {
         casted = cast(state, data, mob.id, 'boss_abyssal_leap', { x: state.player.x, y: state.player.y }).ok;

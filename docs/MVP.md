@@ -10,7 +10,7 @@
 |---|---|
 | **Playable Dinosaur Classes (5)** | **T-Rex** (Espadón / Daño bruto), **Velociraptor** (Katanas / Glass cannon veloz), **Triceratops** (Escudo-Lanza / Tanque herbívoro), **Dodo Mago** (Gorrito de Mago + Báculo de Ámbar / Mago elemental), **Pteranodon** (Arco Óseo / Arquero aéreo) |
 | **Skills (~22 total)** | Auto-attack + 3 signature active skills per dinosaur class (15 player skills + 5 class auto-attacks) + mob & Spinosaurus boss skills, all executed via unified `cast()` |
-| **Zones (3)** | Floor 0: *Valle de Helechos* → Floor 1: *Cráter de Obsidiana* → Floor 2: *Cañón del Espinosaurio* (Boss Arena) |
+| **Zones (4)** | Floor 0: *Claustro Mineral* (`valle_helechos`) → Floor 1: *Puente Quebrado* (`crater_obsidiana`) → Floor 2: *Fortaleza Falla 23* (`fortaleza_falla_23`) → Floor 3: *Osario Hundido* (`canon_dinoblade`, Boss Arena) |
 | **Enemies (6 + Elites + Boss)** | `compsognathus`, `wild_raptor`, `pachy_ram`, `venom_spitter`, `obsidian_ankylo`, `ash_carno`, Elite variants, and 2-phase MVP Boss `spinosaurus_boss` |
 | **Companion Pet** | **Codex** (`pet_codex`) — Floating pixel-art cloud with blinking `>_` prompt that follows the player and periodically casts `heal()`, `boost()` (+ATK/MATK/ASPD/Speed), or `guard()` (-30% damage taken + SP) |
 | **Roguelite Progression** | Level-up stat points + 1-of-3 **Amber Boon Offers** every 2 levels & from **Fossil Kill Chests** (skill upgrades, dino mutations, fossil relics, reroll & skip) |
