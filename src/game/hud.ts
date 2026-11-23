@@ -31,6 +31,7 @@ const STAT_KEYS: StatKey[] = ['STR', 'AGI', 'VIT', 'INT', 'DEX', 'LUK'];
 
 export class GameHud {
   private selectedClassId: string;
+  private titleScreen: 'landing' | 'selection' = 'landing';
   private seed = 'dinolike-2026';
   private autoCastStart = false;
   private statsOpen = false;
@@ -280,27 +281,30 @@ export class GameHud {
       `;
     };
 
-    this.titleEl.innerHTML = `
-      <div class="title-panel">
-        <section class="landing-hero" aria-labelledby="dinolike-title">
-          <div class="landing-copy">
-            <p class="landing-genre">${this.data.names.ui.subtitle}</p>
-            <h1 id="dinolike-title"><span>${gameTitle}</span><small>${gameRealm}</small></h1>
-            <p class="landing-lede">Cinco guerreros prehistóricos. Un reino quebrado. Una cacería contra la oscuridad.</p>
-            <button id="explore-classes-btn" class="landing-action">Elige tu dinosaurio</button>
-            <p class="landing-oath">Sobrevive a las oleadas. Forja tu build. Desafía al Hoja-Abisal.</p>
-          </div>
-          <div class="landing-art" role="img" aria-label="Guerreros dinosaurio frente al Spinosaurus Hoja-Abisal en un reino en ruinas">
-            <video class="landing-cinematic" autoplay muted loop playsinline preload="auto" poster="/landing/concept-art-dark-fantasy.jpg" aria-hidden="true">
-              <source src="/landing/dinolike-landing.mp4" type="video/mp4" />
-            </video>
-            <span>La Falla 23 aguarda</span>
-          </div>
-        </section>
+    const landingScreen = `
+      <section class="landing-hero title-screen" aria-labelledby="dinolike-title">
+        <div class="landing-copy">
+          <p class="landing-genre">${this.data.names.ui.subtitle}</p>
+          <h1 id="dinolike-title" tabindex="-1"><span>${gameTitle}</span><small>${gameRealm}</small></h1>
+          <p class="landing-lede">Cinco guerreros prehistóricos. Un reino quebrado. Una cacería contra la oscuridad.</p>
+          <button id="explore-classes-btn" class="landing-action">Elige tu dinosaurio</button>
+          <p class="landing-oath">Sobrevive a las oleadas. Forja tu build. Desafía al Hoja-Abisal.</p>
+        </div>
+        <div class="landing-art" role="img" aria-label="Guerreros dinosaurio frente al Spinosaurus Hoja-Abisal en un reino en ruinas">
+          <video class="landing-cinematic" autoplay muted loop playsinline preload="auto" poster="/landing/concept-art-dark-fantasy.jpg" aria-hidden="true">
+            <source src="/landing/dinolike-landing.mp4" type="video/mp4" />
+          </video>
+          <span>La Falla 23 aguarda</span>
+        </div>
+      </section>
+    `;
 
+    const selectionScreen = `
+      <div class="selection-screen title-screen">
         <section id="class-selection" class="class-selection" aria-labelledby="class-selection-title">
+          <button id="back-to-landing-btn" class="back-to-landing-btn" type="button">Volver a portada</button>
           <div class="selection-heading">
-            <h2 id="class-selection-title">Elige quién cruzará la Falla</h2>
+            <h2 id="class-selection-title" tabindex="-1">Elige quién cruzará la Falla</h2>
             <p>Cada especie cambia tu arma, movilidad y forma de sobrevivir.</p>
           </div>
 
@@ -341,16 +345,33 @@ export class GameHud {
       </div>
     `;
 
-    this.titleEl.querySelector('#explore-classes-btn')!.addEventListener('click', () => {
-      this.titleEl.querySelector('#class-selection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    this.titleEl.innerHTML = `
+      <div class="title-panel" data-title-screen="${this.titleScreen}">
+        ${this.titleScreen === 'landing' ? landingScreen : selectionScreen}
+      </div>
+    `;
 
-    const cinematic = this.titleEl.querySelector<HTMLVideoElement>('.landing-cinematic');
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      cinematic?.pause();
-    } else {
-      void cinematic?.play().catch(() => undefined);
+    if (this.titleScreen === 'landing') {
+      this.titleEl.querySelector('#explore-classes-btn')!.addEventListener('click', () => {
+        this.titleScreen = 'selection';
+        this.renderTitle();
+        this.titleEl.querySelector<HTMLElement>('#class-selection-title')?.focus();
+      });
+
+      const cinematic = this.titleEl.querySelector<HTMLVideoElement>('.landing-cinematic');
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        cinematic?.pause();
+      } else {
+        void cinematic?.play().catch(() => undefined);
+      }
+      return;
     }
+
+    this.titleEl.querySelector('#back-to-landing-btn')!.addEventListener('click', () => {
+      this.titleScreen = 'landing';
+      this.renderTitle();
+      this.titleEl.querySelector<HTMLElement>('#dinolike-title')?.focus();
+    });
 
     this.titleEl.querySelectorAll<HTMLButtonElement>('.dino-card').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -402,6 +423,7 @@ export class GameHud {
     this.summaryModal.style.display = 'none';
     this.hudLayer.style.display = 'none';
     this.titleEl.style.display = 'flex';
+    this.titleScreen = 'landing';
     this.renderTitle();
     this.startPreviewAnim();
   }
