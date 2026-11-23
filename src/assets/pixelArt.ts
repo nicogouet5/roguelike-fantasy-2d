@@ -359,8 +359,52 @@ const C_SCARF_M = hexToU32('#dc2626');
 const C_WOOD_M = hexToU32('#78350f');
 
 /* ============================================================================
- * 1. T-REX — COLOSSAL BUSTER GREATSWORD (48×48 logical → 96×96 crisp)
+ * 1. T-REX — COLOSSAL IRON BUSTER BLADE (48×48 logical → 96×96 crisp)
  * ========================================================================== */
+/**
+ * A deliberately plain, original slab-blade: dark forged iron, clipped point,
+ * and a short leather grip.  The grip is the anchor in the T-Rex's mouth;
+ * every attack pose rotates the same weapon around that point.
+ */
+function drawRexMouthBlade(
+  g: PixelGrid,
+  gripX: number,
+  gripY: number,
+  tipX: number,
+  tipY: number,
+  bright = C_STEEL_L
+): void {
+  const dx = tipX - gripX;
+  const dy = tipY - gripY;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const nx = -uy;
+  const ny = ux;
+
+  // Leather-wrapped handle protrudes only a little past the jaws.
+  g.line(gripX - ux * 3.1, gripY - uy * 3.1, gripX + ux * 0.8, gripY + uy * 0.8, C_WOOD_M, 1.15);
+  g.px(gripX - ux * 3.6, gripY - uy * 3.6, C_GOLD_D); // square iron pommel
+  // Stark crossguard: practical, not ornamental.
+  g.line(gripX + nx * 3.1, gripY + ny * 3.1, gripX - nx * 3.1, gripY - ny * 3.1, C_STEEL_D, 1.0);
+  g.line(gripX + nx * 2.0, gripY + ny * 2.0, gripX - nx * 2.0, gripY - ny * 2.0, C_STEEL_M, 0.45);
+
+  // Broad at the ricasso and still brutally wide at the clipped point.
+  const bladeStartX = gripX + ux * 1.2;
+  const bladeStartY = gripY + uy * 1.2;
+  const bodyTipX = tipX - ux * 1.8;
+  const bodyTipY = tipY - uy * 1.8;
+  g.blade(bladeStartX, bladeStartY, bodyTipX, bodyTipY, 6.2, 3.4, C_STEEL_D, C_STEEL_M, bright);
+  g.taper(bodyTipX, bodyTipY, 2.15, tipX, tipY, 0.55, C_STEEL_D);
+  g.line(bladeStartX + nx * 0.45, bladeStartY + ny * 0.45, bodyTipX + nx * 0.35, bodyTipY + ny * 0.35, C_STEEL_L, 0.42);
+
+  // A pair of forge notches makes the silhouette read as a battle-worn iron slab.
+  const notchA = 0.35;
+  const notchB = 0.56;
+  g.px(gripX + dx * notchA + nx * 3.0, gripY + dy * notchA + ny * 3.0, C_STEEL_D);
+  g.px(gripX + dx * notchB - nx * 2.4, gripY + dy * notchB - ny * 2.4, C_STEEL_D);
+}
+
 function drawTRexFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   const g = new PixelGrid(48, 48);
   const m = getMotion(pose, frame);
@@ -455,44 +499,36 @@ function drawTRexFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   g.px(headX + 2, headY - 2, hexToU32('#7f1d1d'));
   g.px(headX + 1, headY - 2, C_WHITE);
 
-  // MASSIVE DINOBLADE BUSTER GREATSWORD IN JAWS
-  const gripX = headX + 4;
-  const gripY = headY + 2.8;
+  // MASSIVE IRON BUSTER BLADE — the leather grip is clamped between the jaws.
+  // The sequence reads as head-driven: rear-up anticipation, long lateral
+  // sweep, impact at the far reach, then a heavy low follow-through.
+  const gripX = headX + 5.1;
+  const gripY = headY + 3.0;
 
   if (m.atkStep === -1) {
-    // Classic DinoBlade silhouette: massive broad cleaver slung up-back over shoulder from jaws!
+    // Resting silhouette: blade slung up and behind the skull, leaving the jaw readable.
     const sway = m.breath * 0.7;
-    g.line(gripX + 4, gripY + 2, gripX - 2, gripY - 1, C_WOOD_M, 1.2); // hilt
-    g.blade(gripX - 1, gripY - 1, gripX - 16, gripY - 13 + sway, 4.6, 5.4, C_STEEL_D, C_STEEL_M, C_STEEL_L);
-    // Notches in heavy iron greatsword (faithful to the DinoBlade screenshot!)
-    g.px(gripX - 8, gripY - 8 + sway, C_STEEL_D);
-    g.px(gripX - 12, gripY - 11 + sway, C_STEEL_D);
-    g.line(gripX - 3, gripY - 2, gripX - 13, gripY - 10 + sway, C_WHITE, 0.5); // gleam
-    g.line(gripX - 1, gripY - 3, gripX + 2, gripY + 1, C_GOLD_M, 1.3); // crossguard
-    g.px(gripX, gripY - 2, C_GOLD_L);
+    drawRexMouthBlade(g, gripX, gripY, gripX - 18, gripY - 15 + sway);
   } else if (m.atkStep === 0) {
-    // Wind-up: lifts colossal sword high behind head!
-    g.blade(gripX - 1, gripY - 1, gripX - 13, 2, 4.8, 5.6, C_STEEL_D, C_STEEL_M, C_STEEL_L);
-    g.line(gripX - 2, gripY - 2, gripX + 2, gripY + 1, C_GOLD_L, 1.3);
+    // Clear anticipation: the jaws pull the blade high to the rear before the sweep.
+    drawRexMouthBlade(g, gripX, gripY, gripX - 16, 1.5);
   } else if (m.atkStep === 1) {
-    // Fast downward cleave with blazing orange/white smear arc!
-    g.smearArc(gripX - 2, gripY + 4, 17, 5.5, -2.35, -0.15, C_FIRE_D, C_FIRE_M, C_FIRE_L);
-    g.blade(gripX, gripY, gripX + 14, gripY - 10, 4.6, 5.4, C_STEEL_D, C_STEEL_L, C_WHITE);
-    g.line(gripX - 1, gripY - 2, gripX + 2, gripY + 2, C_GOLD_L, 1.3);
+    // First half of the head-driven lateral sweep; a cold wake tracks blade length.
+    g.smearArc(gripX, gripY, 19, 3.1, -2.38, -0.34, C_STEEL_D, C_STEEL_M, C_STEEL_L);
+    drawRexMouthBlade(g, gripX, gripY, 46, gripY - 8, C_WHITE);
   } else if (m.atkStep === 2) {
-    // Peak impact smash forward-down!
-    g.smearArc(gripX - 4, gripY + 6, 18, 6.2, -1.65, 0.72, C_FIRE_D, C_FIRE_M, C_WHITE);
-    g.blade(gripX, gripY, Math.min(46, gripX + 13), Math.min(45, gripY + 15), 4.8, 5.6, C_STEEL_D, C_STEEL_L, C_WHITE);
-    g.line(gripX - 2, gripY + 1, gripX + 2, gripY - 2, C_GOLD_L, 1.3);
+    // Peak impact is at the far front of the weapon's 2.85-tile game reach.
+    g.smearArc(gripX, gripY, 20, 4.3, -1.15, 0.78, C_STEEL_D, C_STEEL_M, C_WHITE);
+    drawRexMouthBlade(g, gripX, gripY, 46, Math.min(43, gripY + 13), C_WHITE);
+    g.px(46, Math.min(43, gripY + 13), C_FIRE_L);
+    g.px(44, Math.min(45, gripY + 15), C_FIRE_M);
   } else if (m.atkStep === 3) {
-    // Follow-through sparks
-    g.smearArc(gripX - 4, gripY + 6, 16, 3.0, -0.4, 0.8, C_FIRE_D, C_FIRE_M, C_FIRE_L);
-    g.blade(gripX, gripY, Math.min(46, gripX + 10), Math.min(45, gripY + 16), 4.6, 5.2, C_STEEL_D, C_STEEL_M, C_STEEL_L);
-    g.line(gripX - 2, gripY + 1, gripX + 2, gripY - 2, C_GOLD_M, 1.2);
+    // Heavy follow-through drags the slab low rather than snapping back instantly.
+    g.smearArc(gripX, gripY, 18, 2.1, 0.08, 0.92, C_STEEL_D, C_STEEL_M, C_STEEL_L);
+    drawRexMouthBlade(g, gripX, gripY, gripX + 2, 45);
   } else {
-    // Recovering back to shoulder
-    g.blade(gripX - 1, gripY, gripX - 10, gripY - 12, 4.6, 5.2, C_STEEL_D, C_STEEL_M, C_STEEL_L);
-    g.line(gripX - 1, gripY - 2, gripX + 2, gripY + 1, C_GOLD_M, 1.2);
+    // Recovery returns the blade behind the head into the idle silhouette.
+    drawRexMouthBlade(g, gripX, gripY, gripX - 13, gripY - 13);
   }
 
   g.outline('#121710');

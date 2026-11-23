@@ -1,0 +1,38 @@
+[
+  {
+    "id": "fortaleza_acero_coral",
+    "background": "#102838",
+    "groundTint": "#6FA8C8",
+    "pathTint": "#FF7666",
+    "wallTint": "#9CC6DA",
+    "propTint": "#C99582",
+    "portalTint": "#7ED8E8"
+  },
+  {
+    "id": "claustro_jade_ambar",
+    "background": "#071D1B",
+    "groundTint": "#58B47D",
+    "pathTint": "#F6CB50",
+    "wallTint": "#92C8A1",
+    "propTint": "#BBD85C",
+    "portalTint": "#FFF09A"
+  },
+  {
+    "id": "puente_violeta_cobre",
+    "background": "#0A1535",
+    "groundTint": "#527DDB",
+    "pathTint": "#F0A34D",
+    "wallTint": "#8973C9",
+    "propTint": "#C9875B",
+    "portalTint": "#85D8FF"
+  },
+  {
+    "id": "osario_hueso_petroleo",
+    "background": "#071C29",
+    "groundTint": "#D8C18D",
+    "pathTint": "#277F9A",
+    "wallTint": "#75BBCB",
+    "propTint": "#C3AE87",
+    "portalTint": "#60D7EA"
+  }
+]

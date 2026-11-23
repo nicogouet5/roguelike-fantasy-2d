@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="540" viewBox="0 0 1280 540" role="img" aria-labelledby="title desc">
+  <title id="title">Paletas de escenarios DinoBlade</title>
+  <desc id="desc">Muestra de cuatro paletas dark fantasy pixel. Las tres centrales se asignan a los mapas existentes.</desc>
+  <rect width="1280" height="540" fill="#0b1018"/>
+  <style>
+    text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; fill: #f2eee5; }
+    .title { font-size: 25px; font-weight: 700; } .sub { font-size: 14px; fill: #aeb7c6; }
+    .label { font-size: 15px; font-weight: 700; } .map { font-size: 12px; fill: #b8c1cd; }
+  </style>
+  <text class="title" x="48" y="52">DinoBlade · Paletas de escenario</text>
+  <text class="sub" x="48" y="79">Identidad estable por mapa · telegráfos de ataque conservan sus colores de alto contraste</text>
+  <g transform="translate(48 118)">
+    <g>
+      <rect width="270" height="350" rx="10" fill="#102838" stroke="#9CC6DA" stroke-width="3"/>
+      <path d="M18 195 135 112 252 195 135 278Z" fill="#6FA8C8" stroke="#9CC6DA" stroke-width="5"/>
+      <path d="M70 241 135 195 200 241 135 287Z" fill="#FF7666" opacity=".92"/>
+      <rect x="22" y="22" width="34" height="34" fill="#C99582"/><rect x="214" y="22" width="34" height="34" fill="#C99582"/>
+      <text class="label" x="20" y="314">Fortaleza acero / coral</text><text class="map" x="20" y="335">Reserva · futuro mapa</text>
+    </g>
+    <g transform="translate(300)">
+      <rect width="270" height="350" rx="10" fill="#071D1B" stroke="#92C8A1" stroke-width="3"/>
+      <path d="M18 195 135 112 252 195 135 278Z" fill="#58B47D" stroke="#92C8A1" stroke-width="5"/>
+      <path d="M70 241 135 195 200 241 135 287Z" fill="#F6CB50" opacity=".92"/>
+      <rect x="22" y="22" width="34" height="34" fill="#BBD85C"/><rect x="214" y="22" width="34" height="34" fill="#BBD85C"/>
+      <text class="label" x="20" y="314">Claustro jade / ámbar</text><text class="map" x="20" y="335">Valle de Helechos</text>
+    </g>
+    <g transform="translate(600)">
+      <rect width="270" height="350" rx="10" fill="#0A1535" stroke="#8973C9" stroke-width="3"/>
+      <path d="M18 195 135 112 252 195 135 278Z" fill="#527DDB" stroke="#8973C9" stroke-width="5"/>
+      <path d="M70 241 135 195 200 241 135 287Z" fill="#F0A34D" opacity=".92"/>
+      <rect x="22" y="22" width="34" height="34" fill="#C9875B"/><rect x="214" y="22" width="34" height="34" fill="#C9875B"/>
+      <text class="label" x="20" y="314">Puente violeta / cobre</text><text class="map" x="20" y="335">Cráter de Obsidiana</text>
+    </g>
+    <g transform="translate(900)">
+      <rect width="270" height="350" rx="10" fill="#071C29" stroke="#75BBCB" stroke-width="3"/>
+      <path d="M18 195 135 112 252 195 135 278Z" fill="#D8C18D" stroke="#75BBCB" stroke-width="5"/>
+      <path d="M70 241 135 195 200 241 135 287Z" fill="#277F9A" opacity=".95"/>
+      <rect x="22" y="22" width="34" height="34" fill="#C3AE87"/><rect x="214" y="22" width="34" height="34" fill="#C3AE87"/>
+      <text class="label" x="20" y="314">Osario hueso / petróleo</text><text class="map" x="20" y="335">Cañón del Espinosaurio</text>
+    </g>
+  </g>
+</svg>

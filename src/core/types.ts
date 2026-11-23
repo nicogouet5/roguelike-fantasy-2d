@@ -8,6 +8,12 @@ export type ArchetypeId = 'colossus' | 'glass_cannon' | 'tank' | 'mage' | 'arche
 
 export type BiomeId = 'jungle' | 'volcano' | 'canyon';
 
+export type MapPaletteId =
+  | 'fortaleza_acero_coral'
+  | 'claustro_jade_ambar'
+  | 'puente_violeta_cobre'
+  | 'osario_hueso_petroleo';
+
 export type SkillTemplate =
   | 'melee_arc'
   | 'leap_slam'
@@ -160,6 +166,7 @@ export interface MapDef {
   id: string;
   floorIndex: number;
   biome: BiomeId;
+  paletteId: MapPaletteId;
   width: number;
   height: number;
   targetKills: number;
@@ -168,6 +175,21 @@ export interface MapDef {
   bgColor: string;
   bossId?: string;
   mobs: { mobId: string; weight: number }[];
+}
+
+/**
+ * A visual palette is deliberately separate from biome generation. A map keeps
+ * its layout and tile variants, while its identity controls the static colors
+ * rendered over those tiles.
+ */
+export interface MapPaletteDef {
+  id: MapPaletteId;
+  background: string;
+  groundTint: string;
+  pathTint: string;
+  wallTint: string;
+  propTint: string;
+  portalTint: string;
 }
 
 export interface BoonDef {

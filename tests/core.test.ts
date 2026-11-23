@@ -19,6 +19,14 @@ describe('DinoBlade Core & Data Validation', () => {
     expect(data.boons.length).toBeGreaterThanOrEqual(15);
     expect(data.relics.length).toBeGreaterThanOrEqual(5);
     expect(data.mobsById['spinosaurus_boss']?.isBoss).toBe(true);
+    expect(data.mapsByFloor.map((map) => map.paletteId)).toEqual([
+      'claustro_jade_ambar',
+      'puente_violeta_cobre',
+      'osario_hueso_petroleo',
+    ]);
+    for (const map of data.mapsByFloor) {
+      expect(data.mapPalettesById[map.paletteId]).toBeDefined();
+    }
   });
 
   it('round-trips gridToScreen and screenToGrid accurately', () => {
