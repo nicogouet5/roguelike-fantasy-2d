@@ -86,6 +86,25 @@ class PixelGrid {
     }
   }
 
+  polygon(points: readonly (readonly [number, number])[], col: number): void {
+    for (let y = 0; y < this.h; y++) {
+      const intersections: number[] = [];
+      const scan = y + 0.5;
+      points.forEach(([x0, y0], i) => {
+        const [x1, y1] = points[(i + 1) % points.length]!;
+        if ((y0 <= scan && scan < y1) || (y1 <= scan && scan < y0)) {
+          intersections.push(x0 + (scan - y0) * (x1 - x0) / (y1 - y0));
+        }
+      });
+      intersections.sort((a, b) => a - b);
+      for (let i = 0; i + 1 < intersections.length; i += 2) {
+        const a = Math.max(0, Math.ceil(intersections[i]! - 0.5));
+        const b = Math.min(this.w, Math.ceil(intersections[i + 1]! - 0.5));
+        for (let x = a; x < b; x++) this.buf[y * this.w + x] = col;
+      }
+    }
+  }
+
   ellipse(cx: number, cy: number, rx: number, ry: number, col: number): void {
     const x0 = Math.max(0, Math.floor(cx - rx - 1));
     const x1 = Math.min(this.w - 1, Math.ceil(cx + rx + 1));
@@ -542,9 +561,9 @@ function drawTRexFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
 function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   const g = new PixelGrid(48, 48);
   const m = getMotion(pose, frame);
-  const body = makeRamp('#0e5a6d', '#0891b2', '#22d3ee', '#a5f3fc');
-  const belly = makeRamp('#67b7c7', '#bae6fd', '#f0f9ff');
-  const plume = makeRamp('#991b1b', '#ef4444', '#fca5a5');
+  const body = makeRamp('#202832', '#394e53', '#577270', '#8da397');
+  const belly = makeRamp('#5b6558', '#8b9176', '#d2c8a3');
+  const plume = makeRamp('#49262f', '#84514a', '#c18665');
   const by = Math.round(m.bob);
   const lx = m.leanX * 1.35;
 
@@ -557,7 +576,7 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
       [16 + m.legB * 0.5, 35, 1.5],
       [bX, bY - 1, 1.2],
     ],
-    makeRamp('#083d4c', '#0e7490', '#0891b2')
+    makeRamp('#1a2330', '#2f414c', '#445c60')
   );
   g.px(bX + 2, bY - 1, C_WHITE); // raised sickle claw
 
@@ -573,13 +592,18 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   );
   // Crimson & cyan tail plume fan
   g.shadedEllipse(4, 21 + by + m.tailWave * 1.1, 3.6, 1.8, plume);
-  g.px(3, 20 + by + m.tailWave * 1.1, C_CYAN_L);
+  g.px(3, 20 + by + m.tailWave * 1.1, C_GOLD_M);
 
   // Sleek leaning predator torso
   g.shadedEllipse(22 + lx * 0.6, 25 + by, 6.2, 4.1, body);
   g.shadedEllipse(23 + lx * 0.7, 27 + by, 4.4, 2.1, belly);
-  // Ninja waist wrap
-  g.line(20 + lx * 0.6, 22 + by, 22 + lx * 0.6, 28 + by, C_SCARF_M, 1.1);
+  // Asymmetric lamellar shoulder and a worn leather harness.
+  const armorX = 22 + lx * 0.6;
+  g.line(armorX - 5, 23 + by, armorX + 4, 21 + by, C_STEEL_D, 2);
+  g.line(armorX - 4, 22 + by, armorX + 3, 20 + by, C_STEEL_M, 0.9);
+  g.line(armorX - 3, 23 + by, armorX + 1, 29 + by, C_WOOD_M, 1.2);
+  g.px(armorX - 1, 25 + by, C_GOLD_M);
+  g.px(armorX + 2, 22 + by, C_STEEL_L);
 
   // Front springy leg with lethal sickle claw
   const fX = 22 + m.legA * 1.2;
@@ -610,7 +634,8 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
     ],
     body
   );
-  // Head plumes swept back
+  // Layered feather mantle and broken iron forehead plate.
+  g.polygon([[hx + 2, hy - 1], [hx - 7, hy - 7], [hx - 9, hy - 6], [hx - 7, hy - 3], [hx - 12, hy - 4], [hx - 8, hy + 1], [hx - 2, hy + 2]], plume.dark);
   g.spline(
     [
       [hx - 1, hy - 2, 1.6],
@@ -621,6 +646,8 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   );
   // Snout
   g.taper(hx, hy, 2.4, hx + 6.5, hy + 0.8, 1.3, body);
+  g.line(hx - 1, hy - 2, hx + 3, hy - 1.8, C_STEEL_M, 0.7);
+  g.px(hx + 5, hy + 1.7, C_IVORY);
   g.rect(hx + 1, hy - 1.5, 2, 1.5, C_GOLD_L); // razor eye
   g.px(hx + 2, hy - 1.5, C_WHITE);
 
@@ -909,17 +936,21 @@ function drawDodoWizardFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
 function drawPteranodonFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   const g = new PixelGrid(48, 48);
   const m = getMotion(pose, frame);
-  const body = makeRamp('#4c1d95', '#7c3aed', '#a78bfa', '#ddd6fe');
-  const wing = makeRamp('#312e81', '#5b21b6', '#8b5cf6');
-  const bone = makeRamp('#b45309', '#f59e0b', '#fde68a');
+  const body = makeRamp('#222331', '#424053', '#67617c', '#a49ab4');
+  const wing = makeRamp('#292633', '#4e394b', '#765062');
+  const bone = makeRamp('#66473c', '#9f7853', '#d7bd8b');
 
   // Smooth continuous hovering & wingbeat!
   const hoverPhase = (frame / (pose === 'walk' ? 6 : 4)) * Math.PI * 2;
-  const hoverY = Math.round(Math.sin(hoverPhase) * (pose === 'walk' ? 2.8 : 1.8));
+  const hoverY = Math.round(Math.sin(hoverPhase - 0.45) * (pose === 'walk' ? 2.8 : 1.8));
   const flap = Math.sin(hoverPhase) * (pose === 'walk' ? 9.5 : 5.0);
   const cy = 22 + hoverY;
-  const lx = m.leanX;
+  const lx = m.leanX + (pose === 'walk' ? Math.cos(hoverPhase) * 1.7 : 0);
 
+  // Ragged, load-bearing wing membranes: the tips and trailing folds move together.
+  g.polygon([[22, cy], [31, cy - 6 - flap * 0.7], [40, cy - 10 - flap], [37, cy + 2 - flap * 0.5], [31, cy + 1], [26, cy + 7]], wing.dark);
+  g.polygon([[20, cy], [11, cy - 4 + flap * 0.75], [2, cy - 9 + flap], [5, cy + 7 + flap * 0.56], [10, cy + 5 + flap * 0.5], [14, cy + 11], [20, cy + 5]], wing.mid);
+  g.polygon([[9, cy - 2 + flap * 0.75], [5, cy + 6 + flap * 0.56], [10, cy + 4 + flap * 0.5], [13, cy + 9]], wing.dark);
   // Far wing membrane + golden wing bone strut
   g.spline(
     [
@@ -927,7 +958,7 @@ function drawPteranodonFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
       [30 + lx * 0.5, cy - 5 - flap * 0.7, 3.6],
       [39, cy - 9 - flap, 1.8],
     ],
-    makeRamp('#2e1065', '#4c1d95', '#6d28d9')
+    makeRamp('#1e2633', '#303344', '#575069')
   );
   g.line(23 + lx * 0.5, cy - 1, 39, cy - 10 - flap, bone.mid, 0.9);
 
@@ -952,7 +983,12 @@ function drawPteranodonFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
 
   // Torso & tucked aerial talons
   g.shadedEllipse(21 + lx * 0.5, cy + 2, 5.2, 6.2, body);
-  g.shadedEllipse(22 + lx * 0.6, cy + 3, 3.2, 4.2, makeRamp('#d97706', '#fbbf24', '#fef3c7'));
+  g.shadedEllipse(22 + lx * 0.6, cy + 3, 3.2, 4.2, makeRamp('#544842', '#806b55', '#b1986c'));
+  const plate = 21 + lx * 0.5;
+  g.line(plate - 4, cy, plate + 3, cy + 2, C_STEEL_D, 1.8);
+  g.line(plate - 3, cy - 1, plate + 3, cy + 1, C_STEEL_M, 0.8);
+  g.line(plate - 2, cy + 3, plate + 3, cy + 5, C_WOOD_M, 0.9);
+  g.px(plate + 2, cy + 4, C_GOLD_M);
   // Talons
   g.line(19 + lx * 0.5, cy + 8, 18 + lx * 0.5, cy + 13, bone.mid, 1.0);
   g.line(23 + lx * 0.5, cy + 8, 24 + lx * 0.5, cy + 13, bone.light, 1.0);

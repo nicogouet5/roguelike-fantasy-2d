@@ -51,7 +51,8 @@ export function drawTriceratopsHornGrowth(
   flipX: boolean,
   scaleX: number,
   scaleY: number,
-  depth: number
+  depth: number,
+  bodyMotion = { x: 0, y: 0, angle: 0 }
 ): void {
   graphics.clear();
   const growth = getTriceratopsHornGrowth(level);
@@ -64,15 +65,22 @@ export function drawTriceratopsHornGrowth(
   // so only the earned extension is visible beyond each original tip.
   graphics.setDepth(depth - 0.02);
 
+  const cos = Math.cos(bodyMotion.angle);
+  const sin = Math.sin(bodyMotion.angle);
   for (const horn of HORNS) {
-    const startX = spriteLeft + (flipX ? 96 - horn.tipX * LOGICAL_PIXEL_SCALE : horn.tipX * LOGICAL_PIXEL_SCALE) * scaleX;
-    const startY = spriteTop + horn.tipY * LOGICAL_PIXEL_SCALE * scaleY;
-    const extensionX = horn.directionX * direction * growth.drawnLength * LOGICAL_PIXEL_SCALE * scaleX;
-    const extensionY = horn.directionY * growth.drawnLength * LOGICAL_PIXEL_SCALE * scaleY;
-    const endX = startX + extensionX;
-    const endY = startY + extensionY;
-    const nx = -horn.directionY * scaleX;
-    const ny = horn.directionX * direction * scaleY;
+    // Same local pivot as the animated frill in actorMotion.ts.
+    const localX = horn.tipX * LOGICAL_PIXEL_SCALE - 47;
+    const localY = horn.tipY * LOGICAL_PIXEL_SCALE - 60;
+    const tipX = 47 + bodyMotion.x + localX * cos - localY * sin;
+    const tipY = 60 + bodyMotion.y + localX * sin + localY * cos;
+    const dx = horn.directionX * cos - horn.directionY * sin;
+    const dy = horn.directionX * sin + horn.directionY * cos;
+    const startX = spriteLeft + (flipX ? 96 - tipX : tipX) * scaleX;
+    const startY = spriteTop + tipY * scaleY;
+    const endX = startX + dx * direction * growth.drawnLength * LOGICAL_PIXEL_SCALE * scaleX;
+    const endY = startY + dy * growth.drawnLength * LOGICAL_PIXEL_SCALE * scaleY;
+    const nx = -dy * scaleX;
+    const ny = dx * direction * scaleY;
     const width = horn.baseWidth * LOGICAL_PIXEL_SCALE;
 
     // Dark edge, ivory body, and a one-pixel highlight preserve the reference's forged-bone signal.

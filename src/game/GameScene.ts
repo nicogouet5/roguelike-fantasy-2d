@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
-import { ANIM_COUNTS, ATLAS_KEY, buildPixelAtlas, clearDinoPreviewCache, getDinoFrameName } from '../assets/pixelArt.ts';
-import { codexBackdropKey, preloadCodexArt, registerCodexArt } from '../assets/codexArt.ts';
+import { ANIM_COUNTS, ATLAS_KEY, buildPixelAtlas, clearDinoPreviewCache, getDinoFrameName, type AnimPose } from '../assets/pixelArt.ts';
+import { codexBodyMotion } from '../assets/actorMotion.ts';
+import { preloadCodexArt, registerCodexArt } from '../assets/codexArt.ts';
+import { buildArenaArchitecture } from './arenaArchitecture.ts';
 import { audioManager } from '../audio/synth.ts';
 import { pickBoon, rerollOffer, skipOffer } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
@@ -36,7 +38,6 @@ export class GameScene extends Phaser.Scene {
   private hud: GameHud | null = null;
 
   private tileGroup: Phaser.GameObjects.Image[] = [];
-  private floorBackdrop: Phaser.GameObjects.Image | null = null;
   private propSprites: Phaser.GameObjects.Sprite[] = [];
   private portalSprite: Phaser.GameObjects.Sprite | null = null;
 
@@ -80,9 +81,7 @@ export class GameScene extends Phaser.Scene {
     registerCodexArt(this);
     clearDinoPreviewCache();
     buildPixelAtlas(this);
-
-    this.scale.on('resize', this.resizeBackdrop, this);
-    this.events.once('shutdown', () => this.scale.off('resize', this.resizeBackdrop, this));
+    buildArenaArchitecture(this);
 
     this.particles = new ParticlePool(this, 100);
     this.damageText = new DamageTextPool(this, 48);
@@ -241,8 +240,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private clearWorldVisuals(): void {
-    this.floorBackdrop?.destroy();
-    this.floorBackdrop = null;
     for (const t of this.tileGroup) t.destroy();
     this.tileGroup = [];
     for (const p of this.propSprites) p.destroy();
@@ -283,13 +280,11 @@ export class GameScene extends Phaser.Scene {
 
     const zone = this.state.zone;
     const mapDef = this.gameData.mapsByFloor[zone.floorIndex]!;
+    const isBossZone = Boolean(mapDef.bossId);
+    audioManager.setMusicMode(isBossZone ? 'boss' : 'ambient');
+    if (isBossZone) audioManager.play('roar');
     const palette = this.gameData.mapPalettesById[mapDef.paletteId]!;
     this.cameras.main.setBackgroundColor(palette.background);
-    const backdrop = codexBackdropKey(zone.floorIndex);
-    if (this.textures.exists(backdrop)) {
-      this.floorBackdrop = this.add.image(0, 0, backdrop).setScrollFactor(0).setDepth(-2000).setAlpha(0.68);
-      this.resizeBackdrop();
-    }
     const mapVisuals = renderMapVisuals(
       this,
       zone,
@@ -337,13 +332,6 @@ export class GameScene extends Phaser.Scene {
     const gy = sy - sx * 0.5;
     const len = Math.hypot(gx, gy) || 1;
     return { moveX: gx / len, moveY: gy / len };
-  }
-
-  private resizeBackdrop(): void {
-    if (!this.floorBackdrop) return;
-    const { width, height } = this.scale.gameSize;
-    const scale = Math.max(width / this.floorBackdrop.width, height / this.floorBackdrop.height);
-    this.floorBackdrop.setPosition(width / 2, height / 2).setScale(scale);
   }
 
   update(_time: number, delta: number): void {
@@ -407,6 +395,7 @@ export class GameScene extends Phaser.Scene {
           if (ev.heavy) {
             this.cameras.main.shake(140, 0.0065);
           }
+          audioManager.playImpact(ev.heavy);
           break;
         }
         case 'notice': {
@@ -419,6 +408,8 @@ export class GameScene extends Phaser.Scene {
           break;
         case 'boss_phase':
           this.cameras.main.shake(320, 0.012);
+          audioManager.setMusicMode('boss');
+          audioManager.play('boss_phase');
           break;
         case 'dash_trail': {
           const flipX = ev.toX - ev.fromX - (ev.toY - ev.fromY) < 0;
@@ -472,6 +463,8 @@ export class GameScene extends Phaser.Scene {
     const isMoving = speedMag > 0.15;
 
     let frameKey: string;
+    let pose: AnimPose;
+    let poseFrame: number;
     let sx = 0.96;
     let sy = 0.96;
 
@@ -479,7 +472,9 @@ export class GameScene extends Phaser.Scene {
       const total = Math.max(120, player.attackAnimDurationMs || 340);
       const progress = Math.max(0, Math.min(0.999, 1 - player.attackAnimMs / total));
       const atkFrame = Math.floor(progress * ANIM_COUNTS.atk);
-      frameKey = getDinoFrameName(cls.spriteId, 'atk', atkFrame);
+      pose = 'atk';
+      poseFrame = atkFrame;
+      frameKey = getDinoFrameName(cls.spriteId, pose, poseFrame);
       // Punchy anticipation squash on windup, stretch on impact peak
       if (atkFrame === 0) {
         sx = 1.03;
@@ -491,18 +486,24 @@ export class GameScene extends Phaser.Scene {
     } else if (isMoving) {
       this.playerWalkPhase = (this.playerWalkPhase + dtSec * (2.6 * speedMag)) % ANIM_COUNTS.walk;
       const walkIdx = Math.floor(this.playerWalkPhase);
-      frameKey = getDinoFrameName(cls.spriteId, 'walk', walkIdx);
+      pose = 'walk';
+      poseFrame = walkIdx;
+      frameKey = getDinoFrameName(cls.spriteId, pose, poseFrame);
       // Subtle stride stretch & contact dust puffs on footfall frames 1 and 4
       const strideBounce = Math.sin((this.playerWalkPhase / ANIM_COUNTS.walk) * Math.PI * 2);
-      sx = 0.96 + Math.abs(strideBounce) * 0.035;
-      sy = 0.96 - Math.abs(strideBounce) * 0.035;
+      if (cls.id === 'velociraptor' || cls.id === 'pteranodon') {
+        sx = 0.96 + Math.abs(strideBounce) * 0.035;
+        sy = 0.96 - Math.abs(strideBounce) * 0.035;
+      }
       if ((walkIdx === 1 || walkIdx === 4) && walkIdx !== this.lastPlayerStepIdx && cls.id !== 'pteranodon') {
         this.particles.dustPuff(pScreen.x, pScreen.y + 4);
       }
       this.lastPlayerStepIdx = walkIdx;
     } else {
       const idleIdx = Math.floor((this.animClockMs / 210) % ANIM_COUNTS.idle);
-      frameKey = getDinoFrameName(cls.spriteId, 'idle', idleIdx);
+      pose = 'idle';
+      poseFrame = idleIdx;
+      frameKey = getDinoFrameName(cls.spriteId, pose, poseFrame);
       this.lastPlayerStepIdx = -1;
     }
 
@@ -526,7 +527,8 @@ export class GameScene extends Phaser.Scene {
         this.playerSprite.flipX,
         sx,
         sy,
-        pScreen.y + 4
+        pScreen.y + 4,
+        codexBodyMotion(pose, poseFrame)
       );
     } else {
       this.triceratopsHornGrowth?.clear();
