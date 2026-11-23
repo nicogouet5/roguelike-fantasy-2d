@@ -10,7 +10,7 @@ export interface TagSetTier {
 export const TAG_SET_TIERS: Record<BuildTag, readonly [TagSetTier, TagSetTier]> = {
   fire: [
     { threshold: 2, label: '+12% daño de habilidades', mods: { skillPowerPct: 0.12 } },
-    { threshold: 4, label: '+25% daño de habilidades y +20% área', mods: { skillPowerPct: 0.25, areaPct: 0.2 } },
+    { threshold: 4, label: '+25% daño de habilidades y +20% tamaño de explosiones/ataques', mods: { skillPowerPct: 0.25, areaPct: 0.2 } },
   ],
   crit: [
     { threshold: 2, label: '+8% crítico y +15% daño crítico', mods: { critChance: 0.08, critDamage: 0.15 } },
