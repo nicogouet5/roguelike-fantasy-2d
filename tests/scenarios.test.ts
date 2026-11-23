@@ -43,8 +43,30 @@ describe('Falla 23 scenario layouts', () => {
       const min = dropByMap[def.id];
       if (min) {
         expect(zone.tiles.filter((t) => t === 'void').length, `${def.id} drop tiles`).toBeGreaterThan(min);
-        expect(zone.tiles, `${def.id} must not paint a path stripe`).not.toContain('path');
+        expect(zone.tiles.filter((t) => t === 'path').length, `${def.id} routes`).toBeGreaterThan(60);
+        expect(def.width * def.height, `${def.id} size`).toBeGreaterThanOrEqual(3500);
       }
+    }
+  });
+
+  it('has no unreachable islands: every walkable tile connects to the spawn', () => {
+    for (const def of data.mapsByFloor) {
+      const zone = generateZoneMap(def, 'islands');
+      const seen = new Set<number>([Math.floor(zone.spawn.y) * zone.width + Math.floor(zone.spawn.x)]);
+      const stack = [...seen];
+      while (stack.length > 0) {
+        const idx = stack.pop()!;
+        const x = idx % zone.width;
+        const y = Math.floor(idx / zone.width);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          const next = (y + dy) * zone.width + (x + dx);
+          if (seen.has(next) || !isWalkable(zone, x + dx + 0.5, y + dy + 0.5)) continue;
+          seen.add(next);
+          stack.push(next);
+        }
+      }
+      const walkable = zone.tiles.filter((_, i) => isWalkable(zone, (i % zone.width) + 0.5, Math.floor(i / zone.width) + 0.5)).length;
+      expect(seen.size, `${def.id} unreachable walkable tiles`).toBe(walkable);
     }
   });
 

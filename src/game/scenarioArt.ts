@@ -13,6 +13,20 @@ export function scnKey(name: string, style?: ArtStyle, variant?: number): string
   return ['scn', style, name, variant].filter((p) => p !== undefined).join('_');
 }
 
+/**
+ * Tiles baked from image-generator output (see `src/assets/scenarios/`). The
+ * file name is the texture key, e.g. `scn_cloister_slab_0.png`. A baked PNG
+ * always wins; the procedural painters below only fill in what is missing.
+ */
+const BAKED = import.meta.glob('../assets/scenarios/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+
+export function preloadScenarioTextures(scene: Phaser.Scene): void {
+  for (const [path, url] of Object.entries(BAKED)) {
+    const key = path.slice(path.lastIndexOf('/') + 1).replace(/\.png$/, '');
+    if (!scene.textures.exists(key)) scene.load.image(key, url);
+  }
+}
+
 interface Pal {
   slab: [string, string, string];
   seam: string;
@@ -25,23 +39,37 @@ interface Pal {
   rock: [string, string, string];
   vein: string;
   veinRate: number;
+  /** Route surface: amber cobbles, violet-brown planks or coral flagstones. */
+  path: [string, string, string];
+  pathSeam: string;
+  /** Moat water and its lamp reflections (cloister only). */
+  water: [string, string];
+  reflect: [string, string];
+  /** Chasm / lava base colour (bridge and fortress). */
+  chasm: string;
 }
 
 const PAL: Record<ArtStyle, Pal> = {
-  // Cool grey slabs, green moss, dark cave rock.
+  // Jade and teal stone, mossy joints, amber cobbled galleries, dark teal cave.
   cloister: {
-    slab: ['#3b4556', '#465264', '#535f70'], seam: '#232b38', hi: '#6a778a', moss: '#6f8a3d', mossRate: 0.05,
-    face: '#3a4454', faceDark: '#252d3a', mortar: '#1a212b', rock: ['#15161e', '#1d1d27', '#272533'], vein: '#c8503c', veinRate: 0,
+    slab: ['#2d4745', '#38564f', '#456760'], seam: '#16282a', hi: '#79a898', moss: '#a4b94a', mossRate: 0.06,
+    face: '#2e4846', faceDark: '#1a2c2c', mortar: '#0f1c1d', rock: ['#0b1618', '#112122', '#182d2d'], vein: '#d8a040', veinRate: 0,
+    path: ['#7a5a34', '#8e6c3c', '#a37f48'], pathSeam: '#33250f',
+    water: ['#0b1f23', '#07151a'], reflect: ['#b8832e', '#e0a84a'], chasm: '#07151a',
   },
-  // Warmer, cracked slabs with a red rim from the lava below.
+  // Violet slabs, weathered plank catwalks and a copper-lit lava chasm.
   bridge: {
-    slab: ['#454a5e', '#525870', '#5f6580'], seam: '#262a3b', hi: '#8a8aa6', moss: '#6f7a3d', mossRate: 0.015,
-    face: '#4b4f66', faceDark: '#2c2f44', mortar: '#1d1f2e', rock: ['#1d1420', '#2a1a28', '#38202f'], vein: '#ff7a2a', veinRate: 0.025,
+    slab: ['#3d3357', '#493e68', '#584b7c'], seam: '#211a35', hi: '#9486bd', moss: '#7a7a3d', mossRate: 0.012,
+    face: '#483c66', faceDark: '#2a2342', mortar: '#1a1430', rock: ['#190f2a', '#241538', '#301b47'], vein: '#ff7a2a', veinRate: 0.03,
+    path: ['#6b4730', '#7d5636', '#906840'], pathSeam: '#2b1a10',
+    water: ['#0b1f23', '#07151a'], reflect: ['#b8832e', '#e0a84a'], chasm: '#170a2a',
   },
-  // Blue-steel plaza slabs with moss in the joints.
+  // Steel-blue plaza slabs, coral flagstone processional road, red lava.
   fortress: {
-    slab: ['#333f50', '#3d4a5e', '#495769'], seam: '#1f2733', hi: '#667790', moss: '#667f35', mossRate: 0.04,
-    face: '#3b4758', faceDark: '#232c39', mortar: '#18202a', rock: ['#1a161d', '#241c24', '#2f222b'], vein: '#ff6a1e', veinRate: 0.03,
+    slab: ['#2b3e56', '#364c68', '#425d7e'], seam: '#16202e', hi: '#7a98bd', moss: '#5f7f3a', mossRate: 0.035,
+    face: '#344762', faceDark: '#1f2c40', mortar: '#121b28', rock: ['#0f1724', '#162133', '#1e2c43'], vein: '#ff6a1e', veinRate: 0.03,
+    path: ['#8a4a48', '#a05a55', '#b96b62'], pathSeam: '#4a2424',
+    water: ['#0b1f23', '#07151a'], reflect: ['#b8832e', '#e0a84a'], chasm: '#2a1218',
   },
 };
 
@@ -138,19 +166,51 @@ function buildGround(scene: Phaser.Scene, style: ArtStyle): void {
   }
 }
 
+/** Routes: cobbles (cloister, fortress) or planks running along grid x (bridge). */
+function buildPaths(scene: Phaser.Scene, style: ArtStyle): void {
+  const p = PAL[style];
+  for (let v = 0; v < 4; v++) {
+    diamond(scene, scnKey('path', style, v), (px, py, a, b) => {
+      if (style === 'bridge') {
+        const ib = Math.floor(b * 5);
+        const fb = b * 5 - ib;
+        if (fb < 0.12) return p.pathSeam;
+        const joint = hash(ib, v, 4);
+        if (Math.abs(a - joint) < 0.018) return p.pathSeam;
+        let c = p.path[Math.floor(hash(ib, Math.floor(a * 2 + joint * 3), v) * 3)]!;
+        if (hash(px, py, v + 2) < 0.12) c = p.path[0];
+        if ((fb > 0.3 && fb < 0.5) && hash(px >> 1, py >> 1, v + 8) < 0.06) c = p.path[2];
+        return c;
+      }
+      // Staggered 4x4 cobbles; odd rows are offset by half a stone.
+      const ib = Math.floor(b * 4);
+      const sa = a * 4 + (ib % 2) * 0.5;
+      const ia = Math.floor(sa);
+      const fa = sa - ia;
+      const fb = b * 4 - ib;
+      if (fa < 0.13 || fb < 0.13) return p.pathSeam;
+      let c = p.path[Math.floor(hash(ia, ib, v) * 3)]!;
+      if (fa < 0.25 && fb < 0.3) c = p.path[2];
+      if (hash(px, py, v + 5) < 0.09) c = p.path[0];
+      return c;
+    });
+  }
+}
+
 function buildDrops(scene: Phaser.Scene, style: ArtStyle): void {
+  const p = PAL[style];
   for (let v = 0; v < 4; v++) {
     if (style === 'cloister') {
-      // Dark moat water: ripples and the red-orange reflection of the gallery lamps.
+      // Dark moat water: ripples and the amber reflection of the gallery lamps.
       diamond(scene, scnKey('void', style, v), (px, py, a, b) => {
-        let c = (a + b) / 2 < 0.4 ? '#101722' : '#0b111a';
-        if (hash(px >> 2, py, v) < 0.1) c = '#18222f';
-        if (hash(px >> 1, py >> 2, v + 3) < 0.022) c = hash(px, py, v) < 0.5 ? '#9a3f36' : '#c8643a';
+        let c = (a + b) / 2 < 0.4 ? p.water[0] : p.water[1];
+        if (hash(px >> 2, py, v) < 0.1) c = '#123035';
+        if (hash(px >> 1, py >> 2, v + 3) < 0.022) c = hash(px, py, v) < 0.5 ? p.reflect[0] : p.reflect[1];
         return c;
       });
     } else {
       // Lava chasm: dark rock with glowing veins.
-      const base = style === 'bridge' ? '#1b0f22' : '#2a1218';
+      const base = p.chasm;
       diamond(scene, scnKey('void', style, v), (px, py, a, b) => {
         const n = Math.sin(a * 9 + b * 5 + v * 1.7) * Math.sin(b * 8 - a * 3 + v * 2.3);
         if (Math.abs(n) < 0.02) return '#ffb347';
@@ -208,18 +268,25 @@ function buildFaces(scene: Phaser.Scene, style: ArtStyle): void {
 }
 
 function buildSprites(scene: Phaser.Scene): void {
-  makeCanvas(scene, scnKey('crystal'), 40, 48, (ctx) => {
-    const shard = (x: number, w: number, hgt: number, tilt: number, c: string, l: string): void => {
-      poly(ctx, [[x - w, 46], [x - w + tilt, 46 - hgt * 0.78], [x + tilt, 46 - hgt], [x + w + tilt, 46 - hgt * 0.78], [x + w, 46]], c);
-      poly(ctx, [[x - w, 46], [x - w + tilt, 46 - hgt * 0.78], [x + tilt, 46 - hgt], [x + tilt, 46]], l);
-    };
-    glow(ctx, 20, 34, 18, '#ff6a4a', 0.35);
-    shard(24, 6, 26, 4, '#d9534f', '#ff8f72');
-    shard(13, 6, 36, -3, '#e2625a', '#ffa085');
-    shard(30, 4, 18, 3, '#b8404f', '#e2625a');
-    shard(19, 5, 22, 0, '#e86a58', '#ffb08f');
-    rect(ctx, 6, 44, 30, 3, '#1a1822');
-  });
+  // Crystal clusters: amber for the jade cloister, coral elsewhere.
+  const crystalSets: Record<string, [string, string, string, string, string]> = {
+    crystal: ['#ff6a4a', '#d9534f', '#e2625a', '#b8404f', '#ffa085'],
+    crystal_amber: ['#ffb43a', '#c8861e', '#e0a030', '#9a6218', '#ffd98a'],
+  };
+  for (const [name, [halo, c1, c2, c3, light]] of Object.entries(crystalSets)) {
+    makeCanvas(scene, scnKey(name), 40, 48, (ctx) => {
+      const shard = (x: number, w: number, hgt: number, tilt: number, c: string, l: string): void => {
+        poly(ctx, [[x - w, 46], [x - w + tilt, 46 - hgt * 0.78], [x + tilt, 46 - hgt], [x + w + tilt, 46 - hgt * 0.78], [x + w, 46]], c);
+        poly(ctx, [[x - w, 46], [x - w + tilt, 46 - hgt * 0.78], [x + tilt, 46 - hgt], [x + tilt, 46]], l);
+      };
+      glow(ctx, 20, 34, 18, halo, 0.35);
+      shard(24, 6, 26, 4, c1, light);
+      shard(13, 6, 36, -3, c2, light);
+      shard(30, 4, 18, 3, c3, c2);
+      shard(19, 5, 22, 0, c2, light);
+      rect(ctx, 6, 44, 30, 3, '#1a1822');
+    });
+  }
 
   makeCanvas(scene, scnKey('brazier'), 44, 64, (ctx) => {
     glow(ctx, 22, 24, 20, '#ff8a2a', 0.5);
@@ -390,6 +457,7 @@ function buildSprites(scene: Phaser.Scene): void {
 export function ensureScenarioTextures(scene: Phaser.Scene): void {
   for (const style of ART_STYLES) {
     buildGround(scene, style);
+    buildPaths(scene, style);
     buildDrops(scene, style);
     buildRock(scene, style);
     buildFaces(scene, style);

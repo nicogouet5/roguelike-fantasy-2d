@@ -10,16 +10,18 @@ La partida avanza automáticamente al completar las oleadas de cada zona.
 
 | Piso | Mapa (`id`) | Mockup | Zona jugable |
 | --- | --- | --- | --- |
-| 1 | `valle_helechos` | `Falla_23_Claustro_Mineral_Mockup.png` | Claustro Mineral: patio y galerías perimetrales. |
-| 2 | `crater_obsidiana` | `Falla_23_Puente_Quebrado_Mockup.png` | Puente Quebrado: tablero sobre un abismo, con dos plataformas y pilares. |
-| 3 | `fortaleza_falla_23` | `Falla_23_Arena_Isometrica_Mockup.png` | Fortaleza Falla 23: plaza amurallada con el arco numerado. |
+| 1 | `valle_helechos` (64×64) | `Falla_23_Claustro_Mineral_Mockup.png` | Claustro Mineral, dominante jade y ámbar: isla central rodeada por un foso, cuatro calzadas que la unen a la galería perimetral de adoquín ámbar y cuatro patios con estanque en las esquinas. |
+| 2 | `crater_obsidiana` (80×56) | `Falla_23_Puente_Quebrado_Mockup.png` | Puente Quebrado, dominante violeta y cobre: cubierta de piedra con plaza central entre dos fortines, y dos pasarelas de tablones que la bordean y se unen mediante conectores, sobre un abismo de lava. |
+| 3 | `fortaleza_falla_23` (64×64) | `Falla_23_Arena_Isometrica_Mockup.png` | Fortaleza Falla 23, dominante azul acero y coral: camino procesional coral desde el antepatio sur, por la gran plaza, hasta el portón «23»; un camino cruzado enlaza los patios oeste y este, con lagos de lava al norte. |
 | 4 | `canon_dinoblade` | `Falla_23_Osario_Hundido_Mockup.png` | Osario Hundido: arena octogonal final del Espinosaurio. |
 
 ## Reglas de los layouts
 
-- Los tres primeros pisos son losas grises abiertas, sin franja de «camino»; el
-  render propio está en `src/game/scenarioRenderer.ts` y `src/game/scenarioArt.ts`.
-- `ground` y `portal` son transitables; `wall` y `void` bloquean a jugador, mobs y
+- Cada piso mezcla losas (`ground`) con rutas (`path`) de otro material: adoquín ámbar,
+  tablones violeta-marrón o adoquín coral. La geometría vive en
+  `src/core/scenarioLayouts.ts`; el render y la paleta de cada nivel, en
+  `src/game/scenarioRenderer.ts` y `src/game/scenarioArt.ts`.
+- `ground`, `path` y `portal` son transitables; `wall` y `void` bloquean a jugador, mobs y
   proyectiles. `void` es la caída que muestra cada mockup: foso de agua (Claustro),
   abismo de lava (Puente) y lava bajo los acantilados (Fortaleza).
 - Ninguna casilla transitable toca el límite del mapa.
