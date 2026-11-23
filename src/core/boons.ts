@@ -205,11 +205,34 @@ export function pickBoon(state: GameState, data: GameData, boonId: string): bool
   return true;
 }
 
+export const AMBER_REROLL_COST = 40;
+export const AMBER_POTION_COST = 35;
+export const AMBER_OFFER_COST = 85;
+
 export function rerollOffer(state: GameState, data: GameData): boolean {
-  if (!state.pendingOffer || state.rerolls <= 0) return false;
-  state.rerolls -= 1;
+  if (!state.pendingOffer) return false;
+  if (state.rerolls > 0) {
+    state.rerolls -= 1;
+  } else if (state.player.amber >= AMBER_REROLL_COST) {
+    state.player.amber -= AMBER_REROLL_COST;
+  } else {
+    return false;
+  }
   const next = rollBoonOffer(state, data, state.pendingOffer.source);
   if (next) state.pendingOffer = next;
+  return true;
+}
+
+export function buyAmberOffer(state: GameState, data: GameData): boolean {
+  if (state.status !== 'playing' || state.pendingOffer || state.player.amber < AMBER_OFFER_COST) {
+    return false;
+  }
+  const offer = rollBoonOffer(state, data, 'chest');
+  if (!offer) return false;
+  state.player.amber -= AMBER_OFFER_COST;
+  state.pendingOffer = offer;
+  state.paused = true;
+  state.events.push({ type: 'sfx', sfx: 'chest' });
   return true;
 }
 

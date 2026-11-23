@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import { ANIM_COUNTS, ATLAS_KEY, buildPixelAtlas, getDinoFrameName } from '../assets/pixelArt.ts';
 import { audioManager } from '../audio/synth.ts';
-import { pickBoon, rerollOffer, skipOffer } from '../core/boons.ts';
+import { buyAmberOffer, pickBoon, rerollOffer, skipOffer } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
 import { loadGameData } from '../core/data.ts';
-import { createGameState, stepGame, usePotion } from '../core/engine.ts';
+import { buyAmberPotion, createGameState, stepGame, usePotion } from '../core/engine.ts';
 import { gridToScreen, ISO_TILE_WIDTH, screenToGrid } from '../core/iso.ts';
 import { cast, findNearestMob } from '../core/skills.ts';
 import type { ElementName, GameState } from '../core/types.ts';
@@ -222,6 +222,18 @@ export class GameScene extends Phaser.Scene {
   handleSkipOffer(): void {
     if (!this.state) return;
     skipOffer(this.state, this.gameData);
+    this.hud?.sync(this.state, true);
+  }
+
+  handleBuyAmberPotion(): void {
+    if (!this.state) return;
+    buyAmberPotion(this.state);
+    this.hud?.sync(this.state, true);
+  }
+
+  handleBuyAmberOffer(): void {
+    if (!this.state) return;
+    buyAmberOffer(this.state, this.gameData);
     this.hud?.sync(this.state, true);
   }
 

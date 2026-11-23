@@ -1,5 +1,38 @@
 import type { GameData } from './data.ts';
-import type { BoonMods, DerivedStats, GameState, PrimaryStats } from './types.ts';
+import type { BoonMods, BuildTag, DerivedStats, GameState, PrimaryStats } from './types.ts';
+
+export interface TagSetTier {
+  threshold: number;
+  label: string;
+  mods: BoonMods;
+}
+
+export const TAG_SET_TIERS: Record<BuildTag, readonly [TagSetTier, TagSetTier]> = {
+  fire: [
+    { threshold: 2, label: '+12% daño de habilidades', mods: { skillPowerPct: 0.12 } },
+    { threshold: 4, label: '+25% daño de habilidades y +20% área', mods: { skillPowerPct: 0.25, areaPct: 0.2 } },
+  ],
+  crit: [
+    { threshold: 2, label: '+8% crítico y +15% daño crítico', mods: { critChance: 0.08, critDamage: 0.15 } },
+    { threshold: 4, label: '+16% crítico y +35% daño crítico', mods: { critChance: 0.16, critDamage: 0.35 } },
+  ],
+  speed: [
+    { threshold: 2, label: '+12% vel. ataque y +8% vel. mov.', mods: { aspdPct: 0.12, moveSpeedPct: 0.08 } },
+    { threshold: 4, label: '+24% vel. ataque y +16% vel. mov.', mods: { aspdPct: 0.24, moveSpeedPct: 0.16 } },
+  ],
+  tank: [
+    { threshold: 2, label: '+15% HP máx. y +15 DEF', mods: { maxHpPct: 0.15, flatDef: 15 } },
+    { threshold: 4, label: '+32% HP máx., +35 DEF y +15% espinas', mods: { maxHpPct: 0.32, flatDef: 35, thornsRatio: 0.15 } },
+  ],
+  bleed: [
+    { threshold: 2, label: '+15% daño a sangrando y +4% robo vida', mods: { damageVsBleedingPct: 0.15, lifesteal: 0.04 } },
+    { threshold: 4, label: '+30% daño a sangrando y +9% robo vida', mods: { damageVsBleedingPct: 0.3, lifesteal: 0.09 } },
+  ],
+  arcane: [
+    { threshold: 2, label: '-12% cooldown y +2 SP/s', mods: { cdrPct: 0.12, spRegen: 2.0 } },
+    { threshold: 4, label: '-24% cooldown, +4 SP/s y +1 proyectil', mods: { cdrPct: 0.24, spRegen: 4.0, extraProjectiles: 1 } },
+  ],
+};
 
 export function expRequiredForLevel(level: number): number {
   return Math.round(70 + (level - 1) * 48 + Math.pow(level - 1, 1.55) * 18);
@@ -74,9 +107,27 @@ export function computeDerivedStats(state: GameState, data: GameData): DerivedSt
     hornRangePct: 0,
   };
 
+  const tagCounts: Record<BuildTag, number> = {
+    fire: 0,
+    crit: 0,
+    speed: 0,
+    tank: 0,
+    bleed: 0,
+    arcane: 0,
+  };
   for (const [boonId, rank] of Object.entries(state.boonRanks)) {
     const boon = data.boonsById[boonId];
-    if (boon && rank > 0) accumulateMods(mods, boon.mods, rank);
+    if (boon && rank > 0) {
+      accumulateMods(mods, boon.mods, rank);
+      for (const tag of boon.tags) tagCounts[tag] += rank;
+    }
+  }
+  // Apply Brotato/TFT-style Tag Set Bonuses at thresholds 2 and 4!
+  for (const tag of Object.keys(TAG_SET_TIERS) as BuildTag[]) {
+    const count = tagCounts[tag];
+    const [tier2, tier4] = TAG_SET_TIERS[tag];
+    if (count >= tier4.threshold) accumulateMods(mods, tier4.mods, 1);
+    else if (count >= tier2.threshold) accumulateMods(mods, tier2.mods, 1);
   }
   for (const relicId of state.relics) {
     const relic = data.relicsById[relicId];

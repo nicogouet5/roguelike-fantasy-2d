@@ -1,5 +1,5 @@
 import { spawnMob, stepMobsAi } from './ai.ts';
-import { enqueueOffer } from './boons.ts';
+import { AMBER_POTION_COST, enqueueOffer } from './boons.ts';
 import type { GameData } from './data.ts';
 import { generateZoneMap, isWalkable } from './mapGen.ts';
 import { createRng, hashSeed } from './rng.ts';
@@ -190,6 +190,21 @@ export function usePotion(state: GameState, data: GameData): boolean {
   player.hp = Math.min(derived.maxHp, player.hp + hpHeal);
   player.sp = Math.min(derived.maxSp, player.sp + spHeal);
   state.events.push({ type: 'heal', targetId: 'player', x: player.x, y: player.y, amount: hpHeal });
+  state.events.push({ type: 'sfx', sfx: 'buff' });
+  return true;
+}
+
+export function buyAmberPotion(state: GameState): boolean {
+  if (state.status !== 'playing' || state.player.amber < AMBER_POTION_COST) return false;
+  state.player.amber -= AMBER_POTION_COST;
+  state.player.potions += 1;
+  state.events.push({
+    type: 'notice',
+    x: state.player.x,
+    y: state.player.y,
+    text: '+1 Poción de Ámbar',
+    color: '#4ade80',
+  });
   state.events.push({ type: 'sfx', sfx: 'buff' });
   return true;
 }

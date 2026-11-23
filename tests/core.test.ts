@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { getBuildTagCounts, pickBoon, rerollOffer, rollBoonOffer } from '../src/core/boons.ts';
+import {
+  AMBER_OFFER_COST,
+  AMBER_POTION_COST,
+  AMBER_REROLL_COST,
+  buyAmberOffer,
+  getBuildTagCounts,
+  pickBoon,
+  rerollOffer,
+  rollBoonOffer,
+} from '../src/core/boons.ts';
 import { runHeadlessBot } from '../src/core/bot.ts';
 import { loadGameData } from '../src/core/data.ts';
 import { getElementMultiplier } from '../src/core/elements.ts';
-import { createGameState, stepGame, transitionToNextZone, usePotion } from '../src/core/engine.ts';
+import { buyAmberPotion, createGameState, stepGame, transitionToNextZone, usePotion } from '../src/core/engine.ts';
 import { gridToScreen, screenToGrid } from '../src/core/iso.ts';
 import { generateZoneMap, hasWalkablePath } from '../src/core/mapGen.ts';
 import { cast, grantPlayerExp } from '../src/core/skills.ts';
@@ -160,6 +169,34 @@ describe('DinoBlade Core & Data Validation', () => {
     expect(after.maxHp).toBeGreaterThan(before.maxHp);
     expect(after.atk).toBeGreaterThan(before.atk + 35);
     expect(after.thornsRatio).toBeGreaterThanOrEqual(0.25);
+  });
+
+  it('activates Tag Set Bonuses at 2 and 4 stacks and allows spending Amber on rerolls, potions, and extra offers', () => {
+    const state = createGameState(data, { classId: 'dodo', seed: 'amber-sets' });
+    const base = computeDerivedStats(state, data);
+
+    // 2 Arcane cards unlock Tier 2 set bonus (-12% CDR, +2 SP/s)
+    state.boonRanks['boon_stat_int'] = 2;
+    const tier2 = computeDerivedStats(state, data);
+    expect(tier2.cdr).toBeGreaterThanOrEqual(base.cdr + 0.12);
+
+    // 4 Arcane cards unlock Tier 4 set bonus (+1 extra projectile)
+    state.boonRanks['boon_stat_int'] = 4;
+    const tier4 = computeDerivedStats(state, data);
+    expect(tier4.extraProjectiles).toBeGreaterThanOrEqual(1);
+
+    // Spending Amber on potion, extra offer, and paid reroll
+    state.player.amber = AMBER_POTION_COST + AMBER_OFFER_COST + AMBER_REROLL_COST;
+    const startPotions = state.player.potions;
+    expect(buyAmberPotion(state)).toBe(true);
+    expect(state.player.potions).toBe(startPotions + 1);
+
+    expect(buyAmberOffer(state, data)).toBe(true);
+    expect(state.pendingOffer).not.toBeNull();
+
+    state.rerolls = 0;
+    expect(rerollOffer(state, data)).toBe(true);
+    expect(state.player.amber).toBe(0);
   });
 
   it('transitions to boss floor with Spinosaurus Hoja-Abisal and executes headless bot cleanly', () => {

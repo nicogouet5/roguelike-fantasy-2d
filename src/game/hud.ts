@@ -1,7 +1,7 @@
 import { getDinoPreviewDataUrl, getDinoPreviewFrames } from '../assets/pixelArt.ts';
-import { getBuildTagCounts } from '../core/boons.ts';
+import { AMBER_OFFER_COST, AMBER_POTION_COST, AMBER_REROLL_COST, getBuildTagCounts } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
-import { computeDerivedStats, getBasicAttackRange } from '../core/stats.ts';
+import { computeDerivedStats, getBasicAttackRange, TAG_SET_TIERS } from '../core/stats.ts';
 import type { BuildTag, GameState, StatKey } from '../core/types.ts';
 
 export interface HudCallbacks {
@@ -14,6 +14,8 @@ export interface HudCallbacks {
   onPickBoon: (boonId: string) => void;
   onRerollOffer: () => void;
   onSkipOffer: () => void;
+  onBuyAmberPotion: () => void;
+  onBuyAmberOffer: () => void;
   onSetPaused: (paused: boolean) => void;
   onReturnToTitle: () => void;
   onJoystickMove: (sx: number, sy: number) => void;
@@ -437,11 +439,17 @@ export class GameHud {
         <button class="pill" id="pill-stats">Build [C]</button>
         <button class="pill ${!this.muted ? 'on' : ''}" id="pill-audio">${this.muted ? 'Sin Audio' : 'Audio [M]'}</button>
       </div>
+      <div class="amber-shop-row">
+        <button class="pill amber-btn ${player.amber >= AMBER_POTION_COST ? 'ready' : ''}" id="pill-buy-pot" ${player.amber < AMBER_POTION_COST ? 'disabled' : ''} title="Gasta Ámbar para comprar una Poción">+Poción (${AMBER_POTION_COST} ◆)</button>
+        <button class="pill amber-btn ${player.amber >= AMBER_OFFER_COST ? 'ready' : ''}" id="pill-buy-offer" ${player.amber < AMBER_OFFER_COST ? 'disabled' : ''} title="Gasta Ámbar para abrir una oferta de 3 mejoras extra">✨ Forjar Mejora (${AMBER_OFFER_COST} ◆)</button>
+      </div>
     `;
     this.statusCard.querySelector('#pill-auto-atk')!.addEventListener('click', () => this.cb.onToggleAutoAttack());
     this.statusCard.querySelector('#pill-auto-cast')!.addEventListener('click', () => this.cb.onToggleAutoCast());
     this.statusCard.querySelector('#pill-stats')!.addEventListener('click', () => this.toggleStatsDrawer());
     this.statusCard.querySelector('#pill-audio')!.addEventListener('click', () => this.cb.onToggleMute());
+    this.statusCard.querySelector('#pill-buy-pot')!.addEventListener('click', () => this.cb.onBuyAmberPotion());
+    this.statusCard.querySelector('#pill-buy-offer')!.addEventListener('click', () => this.cb.onBuyAmberOffer());
 
     // Boss HP Bar
     const boss = state.mobs.find((m) => m.isBoss && m.hp > 0);
@@ -508,7 +516,9 @@ export class GameHud {
     this.expBarFill.style.width = `${expPct}%`;
 
     // Offer Modal
-    const offerKey = state.pendingOffer ? `${state.pendingOffer.source}:${state.pendingOffer.choices.join(',')}:${state.rerolls}` : '';
+    const offerKey = state.pendingOffer
+      ? `${state.pendingOffer.source}:${state.pendingOffer.choices.join(',')}:${state.rerolls}:${state.player.amber >= AMBER_REROLL_COST ? 1 : 0}`
+      : '';
     if (offerKey !== this.lastOfferKey) {
       this.lastOfferKey = offerKey;
       if (state.pendingOffer) {
@@ -589,10 +599,15 @@ export class GameHud {
 
     const buildBarHtml =
       activeTags.length > 0
-        ? `<div class="offer-build-bar">Tu build (más prob. de sinergia): ${activeTags
-            .map(([t, c]) => `<span class="tag-pill active">${this.data.names.tags[t]} ×${c}</span>`)
+        ? `<div class="offer-build-bar">Tus sinergias (junta <strong>2</strong> o <strong>4</strong> para activar bonos de conjunto): ${activeTags
+            .map(([t, c]) => {
+              const [t2, t4] = TAG_SET_TIERS[t];
+              const tip = `(2) ${t2.label} · (4) ${t4.label}`;
+              const nextGoal = c >= 4 ? 'MAX ✓' : c >= 2 ? `${c}/4 ✓` : `${c}/2`;
+              return `<span class="tag-pill active" title="${tip}">${this.data.names.tags[t]} ${nextGoal}</span>`;
+            })
             .join('')}</div>`
-        : `<div class="offer-build-bar muted">Tus elecciones aumentan la probabilidad de cartas con las mismas sinergias.</div>`;
+        : `<div class="offer-build-bar muted">Las etiquetas (🔥 Volcán, ✨ Arcano, etc.) activan <strong>bonos de conjunto al juntar 2 o 4</strong> y suben la prob. de cartas afines.</div>`;
 
     const title =
       offer.source === 'chest'
@@ -620,7 +635,12 @@ export class GameHud {
         const rank = (state.boonRanks[bid] ?? 0) + 1;
         const isSynergy = offer.synergyIds.includes(bid);
         const tagsHtml = boon.tags
-          .map((t) => `<span class="tag-pill ${tagCounts[t] > 0 ? 'active' : ''}">${this.data.names.tags[t]}</span>`)
+          .map((t) => {
+            const [t2, t4] = TAG_SET_TIERS[t];
+            const cur = tagCounts[t];
+            const tip = `Bono de conjunto — (2): ${t2.label} | (4): ${t4.label}`;
+            return `<span class="tag-pill ${cur > 0 ? 'active' : ''}" title="${tip}">${this.data.names.tags[t]} (${cur}→${cur + 1})</span>`;
+          })
           .join('');
         return `
           <button class="offer-card rarity-${boon.rarity}" data-boon="${bid}">
@@ -637,14 +657,20 @@ export class GameHud {
       })
       .join('');
 
+    const canRerollFree = state.rerolls > 0;
+    const canRerollAmber = !canRerollFree && state.player.amber >= AMBER_REROLL_COST;
+    const rerollLabel = canRerollFree
+      ? `🎲 Renovar (${state.rerolls} gratis)`
+      : `🎲 Renovar (${AMBER_REROLL_COST} ◆ · tienes ${state.player.amber} ◆)`;
+
     this.offerModal.innerHTML = `
       <div class="modal-card offer-wrap">
         <h2>${title}</h2>
         ${buildBarHtml}
         <div class="offer-grid">${cards}</div>
         <div class="offer-footer">
-          <button class="secondary-btn" id="btn-reroll" ${state.rerolls <= 0 ? 'disabled' : ''}>🎲 Renovar (${state.rerolls})</button>
-          <button class="secondary-btn" id="btn-skip">Omitir (+25% HP y +35 Ámbar)</button>
+          <button class="secondary-btn" id="btn-reroll" ${!canRerollFree && !canRerollAmber ? 'disabled' : ''}>${rerollLabel}</button>
+          <button class="secondary-btn" id="btn-skip">Omitir (+25% HP y +35 ◆ Ámbar)</button>
         </div>
       </div>
     `;
@@ -659,9 +685,6 @@ export class GameHud {
   private renderStatsDrawer(state: GameState): void {
     const derived = computeDerivedStats(state, this.data);
     const tagCounts = getBuildTagCounts(state, this.data);
-    const activeTags = (Object.entries(tagCounts) as [BuildTag, number][])
-      .filter(([, count]) => count > 0)
-      .sort((a, b) => b[1] - a[1]);
 
     const rows = STAT_KEYS.map(
       (k) => `
@@ -672,12 +695,22 @@ export class GameHud {
     `
     ).join('');
 
-    const tagsHtml =
-      activeTags.length === 0
-        ? '<p class="muted">Elige mejoras al subir de nivel para potenciar sinergias.</p>'
-        : `<div class="offer-tags">${activeTags
-            .map(([t, c]) => `<span class="tag-pill active">${this.data.names.tags[t]} ×${c}</span>`)
-            .join('')}</div>`;
+    const tagsHtml = (Object.keys(TAG_SET_TIERS) as BuildTag[])
+      .map((t) => {
+        const c = tagCounts[t];
+        const [t2, t4] = TAG_SET_TIERS[t];
+        const activeTier = c >= 4 ? 'tier-max' : c >= 2 ? 'tier-on' : '';
+        return `
+          <div class="set-row ${activeTier}">
+            <div class="set-head"><strong>${this.data.names.tags[t]}</strong> <span>${c}/4</span></div>
+            <div class="set-tiers">
+              <span class="${c >= 2 ? 'lit' : ''}">(2) ${t2.label}</span><br/>
+              <span class="${c >= 4 ? 'lit' : ''}">(4) ${t4.label}</span>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
 
     const pickedBoonsHtml = Object.entries(state.boonRanks)
       .filter(([, r]) => r > 0)
