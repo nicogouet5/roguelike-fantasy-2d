@@ -104,11 +104,11 @@
     "boon_trike_fortress": { "name": "Muralla Viviente", "desc": "+22% HP, +18 DEF y +18% poder de habilidades del Triceratops." },
     "boon_dodo_cataclysm": { "name": "Cataclismo del Dodo", "desc": "+20% MATK, +20% área elemental y -10% enfriamiento para el Dodo Mago." },
     "boon_ptera_gale_quiver": { "name": "Carcaj de Vendaval", "desc": "+16% ATK/ASPD y +1 proyectil extra en ráfagas del Pteranodon." },
-    "boon_relic_rex_fang": { "name": "Reliquia: Colmillo de Rex", "desc": "28% prob. de estallido de magma al golpear (+10% ATK)." },
-    "boon_relic_raptor_plume": { "name": "Reliquia: Pluma de Raptor", "desc": "35% prob. de aplicar sangrado (+14% velocidad, +8% crítico)." },
-    "boon_relic_trike_plate": { "name": "Reliquia: Placa de Triceratops", "desc": "Devuelve 35% del daño recibido (+24 DEF, +14% HP)." },
-    "boon_relic_volcanic_amber": { "name": "Reliquia: Ámbar Volcánico", "desc": "Al matar, detona una nova de magma alrededor (+12% MATK)." },
-    "boon_relic_abyssal_claw": { "name": "Reliquia: Garra Abisal", "desc": "Recupera 6% HP y 10 SP por cada enemigo derrotado (+5% robo de vida)." }
+    "boon_relic_rex_fang": { "name": "Reliquia: Colmillo de Rex", "desc": "Al golpear: 28% prob. de estallido de magma. Además otorga +10% ATK permanente." },
+    "boon_relic_raptor_plume": { "name": "Reliquia: Pluma de Raptor", "desc": "Al golpear: 35% prob. de aplicar sangrado. Además otorga +14% velocidad y +8% crítico." },
+    "boon_relic_trike_plate": { "name": "Reliquia: Placa de Triceratops", "desc": "Al recibir daño: devuelve 35% al atacante. Además otorga +24 DEF y +14% HP máximo." },
+    "boon_relic_volcanic_amber": { "name": "Reliquia: Ámbar Volcánico", "desc": "Al matar: detona una nova de magma alrededor. Además otorga +12% MATK permanente." },
+    "boon_relic_abyssal_claw": { "name": "Reliquia: Garra Abisal", "desc": "Al matar: recupera 6% HP y 10 SP. Además otorga +5% robo de vida al golpear." }
   },
   "relics": {
     "relic_rex_fang": { "name": "Colmillo de Rex", "desc": "Golpes liberan llamas volcánicas." },
