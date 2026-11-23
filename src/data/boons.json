@@ -4,6 +4,7 @@
     "category": "stat",
     "rarity": "common",
     "tags": ["fire", "bleed"],
+    "classIds": ["trex", "velociraptor", "triceratops"],
     "maxRank": 5,
     "mods": { "str": 5, "atkPct": 0.08 }
   },
@@ -28,6 +29,7 @@
     "category": "stat",
     "rarity": "common",
     "tags": ["arcane", "fire"],
+    "classIds": ["dodo"],
     "maxRank": 5,
     "mods": { "int": 5, "matkPct": 0.1, "spRegen": 1.8 }
   },
@@ -36,6 +38,7 @@
     "category": "stat",
     "rarity": "common",
     "tags": ["crit", "arcane"],
+    "classIds": ["pteranodon", "trex", "velociraptor", "triceratops"],
     "maxRank": 5,
     "mods": { "dex": 5, "ignoreDef": 0.1, "areaPct": 0.08 }
   },
@@ -101,7 +104,7 @@
     "rarity": "rare",
     "tags": ["bleed", "speed"],
     "maxRank": 3,
-    "mods": { "lifesteal": 0.07, "atkPct": 0.1 }
+    "mods": { "lifesteal": 0.07, "atkPct": 0.1, "matkPct": 0.1 }
   },
   {
     "id": "boon_butcher_pact",
@@ -124,6 +127,7 @@
     "category": "mutation",
     "rarity": "epic",
     "tags": ["arcane", "speed"],
+    "classIds": ["dodo", "pteranodon"],
     "maxRank": 2,
     "mods": { "extraProjectiles": 2, "aspdPct": 0.18, "atkPct": -0.1, "matkPct": -0.1 }
   },
@@ -218,6 +222,7 @@
     "category": "capstone",
     "rarity": "legendary",
     "tags": ["tank"],
+    "classIds": ["trex", "triceratops"],
     "maxRank": 1,
     "mods": { "hpToAtkRatio": 0.14, "maxHpPct": 0.24, "thornsRatio": 0.25 }
   },
@@ -227,7 +232,7 @@
     "rarity": "legendary",
     "tags": ["fire", "arcane"],
     "maxRank": 1,
-    "mods": { "fireBurstOnHitChance": 0.38, "areaPct": 0.24, "matkPct": 0.16 }
+    "mods": { "fireBurstOnHitChance": 0.38, "areaPct": 0.24, "atkPct": 0.16, "matkPct": 0.16 }
   },
   {
     "id": "boon_cap_berserk_fury",
@@ -242,6 +247,7 @@
     "category": "relic",
     "rarity": "rare",
     "tags": ["fire"],
+    "classIds": ["trex", "velociraptor", "triceratops", "pteranodon"],
     "maxRank": 1,
     "relicId": "relic_rex_fang",
     "mods": {}

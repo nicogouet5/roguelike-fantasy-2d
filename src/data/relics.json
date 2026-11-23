@@ -30,7 +30,7 @@
     "element": "Fire",
     "novaRadius": 2.35,
     "novaDamageRatio": 0.95,
-    "statMods": { "matkPct": 0.12 }
+    "statMods": { "atkPct": 0.12, "matkPct": 0.12 }
   },
   {
     "id": "relic_abyssal_claw",

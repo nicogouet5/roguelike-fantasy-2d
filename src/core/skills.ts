@@ -105,7 +105,7 @@ export function damageMob(
   const rng = nextCombatRng(state);
 
   const elemMult = getElementMultiplier(data.elementMatrix, element, mobDef.element);
-  const isCrit = options?.forceCrit ?? (isPhysical && rng.next() < derived.critChance);
+  const isCrit = options?.forceCrit ?? rng.next() < derived.critChance;
   const critMult = isCrit ? derived.critDamage : 1.0;
   const bleedBonusMult = mob.bleedMs > 0 && derived.damageVsBleedingPct > 0 ? 1 + derived.damageVsBleedingPct : 1.0;
   const variance = rng.float(0.93, 1.07);

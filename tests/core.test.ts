@@ -5,6 +5,7 @@ import {
   AMBER_REROLL_COST,
   buyAmberOffer,
   getBuildTagCounts,
+  getEligibleBoons,
   pickBoon,
   rerollOffer,
   rollBoonOffer,
@@ -197,6 +198,18 @@ describe('DinoBlade Core & Data Validation', () => {
     state.rerolls = 0;
     expect(rerollOffer(state, data)).toBe(true);
     expect(state.player.amber).toBe(0);
+
+    // Class-relevant boon pool filtering: Dodo never rolls STR or melee-only cards; T-Rex never rolls INT or projectile overload
+    const dodoPool = getEligibleBoons(createGameState(data, { classId: 'dodo', seed: 'pool-dodo' }), data).map((b) => b.id);
+    expect(dodoPool).not.toContain('boon_stat_str');
+    expect(dodoPool).not.toContain('boon_cap_titan_heart');
+    expect(dodoPool).toContain('boon_stat_int');
+    expect(dodoPool).toContain('boon_projectile_overload');
+
+    const rexPool = getEligibleBoons(createGameState(data, { classId: 'trex', seed: 'pool-rex' }), data).map((b) => b.id);
+    expect(rexPool).toContain('boon_stat_str');
+    expect(rexPool).not.toContain('boon_stat_int');
+    expect(rexPool).not.toContain('boon_projectile_overload');
   });
 
   it('transitions to boss floor with Spinosaurus Hoja-Abisal and executes headless bot cleanly', () => {
