@@ -596,6 +596,12 @@ export class GameHud {
 
     // Boss HP Bar or Top-Center Wave Progression HUD
     const boss = state.mobs.find((m) => m.isBoss && m.hp > 0);
+    const globalTotalWaves = this.data.mapsByFloor.reduce((sum, m) => sum + m.totalWaves, 0);
+    const globalWave =
+      this.data.mapsByFloor.slice(0, state.floorIndex).reduce((sum, m) => sum + m.totalWaves, 0) + state.currentWave;
+    const isLastWave = state.currentWave >= state.totalWaves;
+    const isOneBeforeBoss = globalWave === globalTotalWaves - 1;
+
     if (boss) {
       const pct = Math.max(0, Math.round((boss.hp / boss.maxHp) * 100));
       this.bossBarEl.style.display = 'block';
@@ -611,7 +617,6 @@ export class GameHud {
       this.bossBarEl.style.display = 'none';
       this.waveHudEl.style.display = 'block';
       const totalFloors = this.data.mapsByFloor.length;
-      const isLastWave = state.currentWave >= state.totalWaves;
       const nextFloorName = this.data.mapsByFloor[state.floorIndex + 1]
         ? (this.data.names.maps[this.data.mapsByFloor[state.floorIndex + 1]!.id] ?? `Nivel ${state.floorIndex + 2}`)
         : '';
@@ -624,11 +629,20 @@ export class GameHud {
           </div>
           <div class="wave-track"><div class="wave-fill cleared" style="width:100%"></div></div>
         `;
+      } else if (isOneBeforeBoss) {
+        this.waveHudEl.className = 'final-wave';
+        this.waveHudEl.innerHTML = `
+          <div class="wave-hud-top">
+            <span class="wave-badge">¡QUEDA UNA PURA! · OLEADA ${globalWave}/${globalTotalWaves} (JEFE FINAL PRÓXIMO)</span>
+            <span class="wave-count">${state.mobs.length} enemigos · Limpia para pasar de nivel</span>
+          </div>
+          <div class="wave-track"><div class="wave-fill final" style="width:100%"></div></div>
+        `;
       } else if (isLastWave) {
         this.waveHudEl.className = 'final-wave';
         this.waveHudEl.innerHTML = `
           <div class="wave-hud-top">
-            <span class="wave-badge">¡QUEDA UNA PURA OLEADA! (${state.currentWave}/${state.totalWaves})</span>
+            <span class="wave-badge">ÚLTIMA OLEADA DEL NIVEL · ${globalWave}/${globalTotalWaves}</span>
             <span class="wave-count">${state.mobs.length} enemigos · Limpia para pasar de nivel</span>
           </div>
           <div class="wave-track"><div class="wave-fill final" style="width:100%"></div></div>
@@ -639,7 +653,7 @@ export class GameHud {
         this.waveHudEl.className = '';
         this.waveHudEl.innerHTML = `
           <div class="wave-hud-top">
-            <span class="wave-badge">NIVEL ${state.floorIndex + 1}/${totalFloors} · OLEADA ${state.currentWave}/${state.totalWaves}</span>
+            <span class="wave-badge">NIVEL ${state.floorIndex + 1}/${totalFloors} · OLEADA ${globalWave}/${globalTotalWaves}</span>
             <span class="wave-count">${state.mobs.length} enemigos · Próx. en ${nextSec}s</span>
           </div>
           <div class="wave-track"><div class="wave-fill" style="width:${pct}%"></div></div>
@@ -660,12 +674,15 @@ export class GameHud {
     } else if (state.zoneClearDelayMs > 0) {
       this.goalLabelEl.textContent = '★ ¡Zona despejada! Avanzando...';
       this.goalLabelEl.style.color = '#4ade80';
-    } else if (state.currentWave >= state.totalWaves) {
-      this.goalLabelEl.textContent = `¡Queda una pura oleada! · ${state.mobs.length} vivos`;
+    } else if (isOneBeforeBoss) {
+      this.goalLabelEl.textContent = `¡Queda una pura! · ${state.mobs.length} vivos`;
+      this.goalLabelEl.style.color = '#f97316';
+    } else if (isLastWave) {
+      this.goalLabelEl.textContent = `Última oleada del nivel · ${globalWave}/${globalTotalWaves} · ${state.mobs.length} vivos`;
       this.goalLabelEl.style.color = '#f97316';
     } else {
       const nextSec = Math.max(0, Math.ceil(state.waveTimerMs / 1000));
-      this.goalLabelEl.textContent = `Oleada ${state.currentWave}/${state.totalWaves} · Próx. ${nextSec}s`;
+      this.goalLabelEl.textContent = `Oleada ${globalWave}/${globalTotalWaves} · Próx. ${nextSec}s`;
       this.goalLabelEl.style.color = '#fbbf24';
     }
     this.drawMinimap(state);

@@ -202,12 +202,49 @@
     "mods": { "atkPct": 0.16, "aspdPct": 0.18, "extraProjectiles": 1 }
   },
   {
-    "id": "boon_cap_crit_storm",
+    "id": "boon_cap_crit_trex",
     "category": "capstone",
     "rarity": "legendary",
     "tags": ["crit", "speed"],
+    "classIds": ["trex"],
+    "maxRank": 1,
+    "mods": { "critChance": 0.12 }
+  },
+  {
+    "id": "boon_cap_crit_raptor",
+    "category": "capstone",
+    "rarity": "legendary",
+    "tags": ["crit", "speed"],
+    "classIds": ["velociraptor"],
+    "maxRank": 1,
+    "mods": { "critChance": 0.14 }
+  },
+  {
+    "id": "boon_cap_crit_trike",
+    "category": "capstone",
+    "rarity": "legendary",
+    "tags": ["crit", "tank"],
+    "classIds": ["triceratops"],
+    "maxRank": 1,
+    "mods": { "critChance": 0.12, "flatDef": 15 }
+  },
+  {
+    "id": "boon_cap_crit_dodo",
+    "category": "capstone",
+    "rarity": "legendary",
+    "tags": ["crit", "arcane"],
+    "classIds": ["dodo"],
     "maxRank": 1,
     "mods": { "critChance": 0.12, "critLightningRatio": 0.75 }
+  },
+  {
+    "id": "boon_cap_crit_ptera",
+    "category": "capstone",
+    "rarity": "legendary",
+    "tags": ["crit", "speed"],
+    "classIds": ["pteranodon"],
+    "maxRank": 1,
+    "mods": { "critChance": 0.14 }
   },
   {
     "id": "boon_cap_blood_harvest",

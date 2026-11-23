@@ -27,41 +27,97 @@ function hasClearGroundRay(zone: GameState['zone'], x0: number, y0: number, x1: 
   return true;
 }
 
+/** No wave mob may appear closer than this to the player. */
+const MIN_SPAWN_DIST = 6.2;
+
+interface SpawnBucket {
+  /** Share of the wave assigned to this bucket. */
+  share: number;
+  minR: number;
+  maxR: number;
+  /** Chance an anchor is a random walkable tile anywhere on the map (still >= minR away). */
+  anywhere: number;
+  /** Chance an anchor grows into a 2-3 mob mini pack. */
+  packChance: number;
+  /** Prefer anchors with an open line of ground to the player. */
+  clearRay: boolean;
+}
+
+/**
+ * Waves arrive as a mix of close flankers, mid-range packs and far
+ * reinforcements at random angles, so mobs never form a uniform ring.
+ */
+const SPAWN_BUCKETS: readonly SpawnBucket[] = [
+  { share: 0.3, minR: 6.5, maxR: 12.5, anywhere: 0, packChance: 0.25, clearRay: true }, // close-mid flanks
+  { share: 0.4, minR: 12.5, maxR: 22, anywhere: 0, packChance: 0.55, clearRay: false }, // mid-far skirmisher packs
+  { share: 0.3, minR: 18, maxR: 34, anywhere: 0.5, packChance: 0.4, clearRay: false }, // far map-wide reinforcements
+];
+
 function spawnWaveMobs(state: GameState, data: GameData, mapDef: MapDef, count: number): void {
   const rng = createRng(state.rngCombatState);
-  for (let i = 0; i < count; i++) {
-    if (state.mobs.length >= mapDef.maxMobs) break;
-    let spawned = false;
-    // Prefer spawning in an encircling ring around the player with clear ground approach
-    for (let tries = 0; tries < 28; tries++) {
-      const angle = rng.float(0, Math.PI * 2);
-      const radius = rng.float(7.2, 14.5);
-      const mx = state.player.x + Math.cos(angle) * radius;
-      const my = state.player.y + Math.sin(angle) * radius;
-      if (mx < 3 || mx > state.zone.width - 4 || my < 3 || my > state.zone.height - 4) continue;
-      if (!isWalkable(state.zone, mx, my)) continue;
-      if (tries < 20 && !hasClearGroundRay(state.zone, state.player.x, state.player.y, mx, my)) continue;
-      const mobId = pickWeightedMob(mapDef, rng);
-      const waveEliteBonus = state.currentWave >= mapDef.totalWaves ? 0.14 : 0;
-      const isElite = rng.next() < mapDef.eliteChance + waveEliteBonus;
-      spawnMob(state, data, mobId, mx, my, isElite);
-      spawned = true;
-      break;
+  const { zone, player } = state;
+  const total = Math.min(count, Math.max(0, mapDef.maxMobs - state.mobs.length));
+  const distTo = (x: number, y: number): number => Math.hypot(x - player.x, y - player.y);
+  const okTile = (x: number, y: number): boolean =>
+    x > 1 && y > 1 && x < zone.width - 1 && y < zone.height - 1 && isWalkable(zone, x, y) && distTo(x, y) >= MIN_SPAWN_DIST;
+  const randomTile = (): { x: number; y: number } => ({ x: rng.int(1, zone.width - 2) + 0.5, y: rng.int(1, zone.height - 2) + 0.5 });
+  const place = (x: number, y: number): void => {
+    const mobId = pickWeightedMob(mapDef, rng);
+    const waveEliteBonus = state.currentWave >= mapDef.totalWaves ? 0.14 : 0;
+    const isElite = rng.next() < mapDef.eliteChance + waveEliteBonus;
+    spawnMob(state, data, mobId, x, y, isElite);
+  };
+  const pickAnchor = (bucket: SpawnBucket): { x: number; y: number } | undefined => {
+    for (let tries = 0; tries < 32; tries++) {
+      let spot: { x: number; y: number };
+      if (rng.next() < bucket.anywhere) {
+        spot = randomTile();
+        if (distTo(spot.x, spot.y) < bucket.minR) continue;
+      } else {
+        const angle = rng.float(0, Math.PI * 2);
+        const radius = rng.float(bucket.minR, bucket.maxR);
+        spot = { x: player.x + Math.cos(angle) * radius, y: player.y + Math.sin(angle) * radius };
+      }
+      if (!okTile(spot.x, spot.y)) continue;
+      if (bucket.clearRay && tries < 20 && !hasClearGroundRay(zone, player.x, player.y, spot.x, spot.y)) continue;
+      return spot;
     }
-    if (spawned) continue;
-    // Fallback to anywhere walkable near or across the arena
-    for (let tries = 0; tries < 20; tries++) {
-      const mx = rng.int(4, state.zone.width - 5) + 0.5;
-      const my = rng.int(4, state.zone.height - 5) + 0.5;
-      if (!isWalkable(state.zone, mx, my)) continue;
-      if (Math.hypot(mx - state.player.x, my - state.player.y) < 6.8) continue;
-      const mobId = pickWeightedMob(mapDef, rng);
-      const waveEliteBonus = state.currentWave >= mapDef.totalWaves ? 0.14 : 0;
-      const isElite = rng.next() < mapDef.eliteChance + waveEliteBonus;
-      spawnMob(state, data, mobId, mx, my, isElite);
-      break;
+    // Fallback: anywhere walkable on the arena that is not on top of the player.
+    for (let tries = 0; tries < 40; tries++) {
+      const spot = randomTile();
+      if (okTile(spot.x, spot.y)) return spot;
     }
-  }
+    return undefined;
+  };
+
+  // Split the wave across the buckets; the mid bucket absorbs rounding.
+  const quotas = SPAWN_BUCKETS.map((b) => Math.round(total * b.share));
+  quotas[1] = Math.max(0, total - quotas[0]! - quotas[2]!);
+
+  SPAWN_BUCKETS.forEach((bucket, bi) => {
+    let left = quotas[bi]!;
+    while (left > 0) {
+      const anchor = pickAnchor(bucket);
+      if (!anchor) break;
+      place(anchor.x, anchor.y);
+      left--;
+      const packSize = Math.min(left, rng.next() < bucket.packChance ? rng.int(1, 2) : 0);
+      for (let k = 0; k < packSize; k++) {
+        let placed = false;
+        for (let tries = 0; tries < 8 && !placed; tries++) {
+          const angle = rng.float(0, Math.PI * 2);
+          const offset = rng.float(0.9, 2.3);
+          const x = anchor.x + Math.cos(angle) * offset;
+          const y = anchor.y + Math.sin(angle) * offset;
+          if (!okTile(x, y)) continue;
+          place(x, y);
+          placed = true;
+        }
+        if (!placed) break; // the next anchor picks up the remainder
+        left--;
+      }
+    }
+  });
   state.rngCombatState = rng.getState();
 }
 
@@ -577,14 +633,23 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
         spawnWaveMobs(state, data, mapDef, mapDef.mobsPerWave + bonusCount);
 
         const isLastWave = state.currentWave === state.totalWaves;
+        const globalTotalWaves = data.mapsByFloor.reduce((sum, m) => sum + m.totalWaves, 0);
+        const globalWave =
+          data.mapsByFloor.slice(0, state.floorIndex).reduce((sum, m) => sum + m.totalWaves, 0) + state.currentWave;
+        const isOneBeforeBoss = globalWave === globalTotalWaves - 1;
+        const waveNoticeText = isOneBeforeBoss
+          ? '¡Queda una pura!'
+          : isLastWave
+            ? `¡Última oleada del nivel! (${globalWave}/${globalTotalWaves})`
+            : `¡Oleada ${globalWave}/${globalTotalWaves}!`;
         state.events.push({
           type: 'notice',
           x: player.x,
           y: player.y,
-          text: isLastWave ? '¡Queda una pura oleada!' : `¡Oleada ${state.currentWave}/${state.totalWaves}!`,
-          color: isLastWave ? '#f97316' : '#38bdf8',
+          text: waveNoticeText,
+          color: isOneBeforeBoss || isLastWave ? '#f97316' : '#38bdf8',
         });
-        state.events.push({ type: 'sfx', sfx: isLastWave ? 'roar' : 'portal' });
+        state.events.push({ type: 'sfx', sfx: isOneBeforeBoss || isLastWave ? 'roar' : 'portal' });
       }
     } else if (state.mobs.length === 0 && state.floorIndex < data.mapsByFloor.length - 1) {
       // Final wave cleared -> brief breather then auto-advance to next biome!

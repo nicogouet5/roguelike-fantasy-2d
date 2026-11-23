@@ -7,7 +7,7 @@ import { preloadPlayableSheets, registerPlayableSheets } from '../assets/playabl
 import { preloadMobSheets, registerMobSheets } from '../assets/mobSheets.ts';
 import { buildArenaArchitecture } from './arenaArchitecture.ts';
 import { BossVisuals, getBossMotion } from './bossVisuals.ts';
-import { audioManager } from '../audio/synth.ts';
+import { audioManager, type MusicTrackId } from '../audio/synth.ts';
 import { buyAmberOffer, pickBoon, rerollOffer, skipOffer } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
 import { loadGameData } from '../core/data.ts';
@@ -19,6 +19,7 @@ import type { GameHud } from './hud.ts';
 import { renderMapVisuals } from './mapRenderer.ts';
 import { preloadScenarioTextures } from './scenarioArt.ts';
 import { preloadScenarioSurfaces } from './scenarioSurfaces.ts';
+import { preloadPaintedMaps } from './paintedMaps.ts';
 import { drawTriceratopsHornGrowth } from './triceratopsHorns.ts';
 import {
   AfterimagePool,
@@ -115,6 +116,7 @@ export class GameScene extends Phaser.Scene {
     preloadMobSheets(this);
     preloadScenarioTextures(this);
     preloadScenarioSurfaces(this);
+    preloadPaintedMaps(this);
   }
 
   create(): void {
@@ -209,6 +211,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   returnToTitle(): void {
+    audioManager.setMusicTrack(null);
     this.clearWorldVisuals();
     this.state = null;
     this.hud?.showTitle();
@@ -385,7 +388,9 @@ export class GameScene extends Phaser.Scene {
     const zone = this.state.zone;
     const mapDef = this.gameData.mapsByFloor[zone.floorIndex]!;
     const isBossZone = Boolean(mapDef.bossId);
-    audioManager.setMusicMode(isBossZone ? 'boss' : 'ambient');
+    const floorTracks: readonly MusicTrackId[] = ['floor1', 'floor2', 'floor3'];
+    const track = isBossZone ? 'boss' : (floorTracks[zone.floorIndex] ?? 'floor3');
+    audioManager.setMusicTrack(track);
     if (isBossZone) audioManager.play('roar');
     const palette = this.gameData.mapPalettesById[mapDef.paletteId]!;
     this.cameras.main.setBackgroundColor(palette.background);

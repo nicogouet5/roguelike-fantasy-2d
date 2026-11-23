@@ -16,6 +16,7 @@ import type {
   BuffId,
   CastResult,
   CastTarget,
+  DerivedStats,
   ElementName,
   GameState,
   MobEntity,
@@ -31,12 +32,17 @@ function saveCombatRng(state: GameState, rngState: number): void {
   state.rngCombatState = rngState;
 }
 
-export function findNearestMob(state: GameState, maxRange = Infinity): MobEntity | null {
+export function findNearestMob(
+  state: GameState,
+  maxRange = Infinity,
+  origin: { x: number; y: number } = state.player,
+  excludedIds?: ReadonlySet<string>
+): MobEntity | null {
   let best: MobEntity | null = null;
   let bestDist = maxRange;
   for (const mob of state.mobs) {
-    if (mob.hp <= 0) continue;
-    const d = Math.hypot(mob.x - state.player.x, mob.y - state.player.y);
+    if (mob.hp <= 0 || excludedIds?.has(mob.id)) continue;
+    const d = Math.hypot(mob.x - origin.x, mob.y - origin.y);
     if (d <= bestDist) {
       bestDist = d;
       best = mob;
@@ -104,6 +110,114 @@ export function getClassPassiveDamageMult(state: GameState, mob: MobEntity): num
     return dist > PTERA_LONG_RANGE_TILES ? 1 + PTERA_LONG_RANGE_BONUS : 1;
   }
   return 1;
+}
+
+const CRIT_CAPSTONE_HIT = { allowRelics: false, forceCrit: false };
+
+function tryCritTeleport(state: GameState, data: GameData, mob: MobEntity, atk: number): void {
+  const { player } = state;
+  const isRaptor = player.classId === 'velociraptor';
+  const boonId = isRaptor ? 'boon_cap_crit_raptor' : 'boon_cap_crit_trex';
+  if ((state.boonRanks[boonId] ?? 0) <= 0) return;
+  const elapsedMs = state.stats.elapsedMs;
+  if (elapsedMs - (player.lastCritCapstoneMs ?? -Infinity) < (isRaptor ? 350 : 450)) return;
+
+  const fromX = player.x;
+  const fromY = player.y;
+  const landingOffsets = isRaptor ? [0, 45, -45, 90, -90] : [0, 45, -45, 90, -90, 135, -135, 180];
+  const landingDistance = 1.1;
+  let bestDistance = isRaptor ? 8.5 : 7.5;
+  let landing: { target: MobEntity; x: number; y: number } | undefined;
+
+  for (const other of state.mobs) {
+    if (other.id === mob.id || other.hp <= 0) continue;
+    const distance = Math.hypot(other.x - fromX, other.y - fromY);
+    if (distance > bestDistance) continue;
+    const bearing = isRaptor
+      ? Math.atan2(-other.facingY, -other.facingX)
+      : Math.atan2(fromY - other.y, fromX - other.x);
+
+    for (const offset of landingOffsets) {
+      const angle = bearing + (offset * Math.PI) / 180;
+      const x = other.x + Math.cos(angle) * landingDistance;
+      const y = other.y + Math.sin(angle) * landingDistance;
+      if (!isWalkable(state.zone, x, y)) continue;
+      landing = { target: other, x, y };
+      bestDistance = distance;
+      break;
+    }
+  }
+  if (!landing) return;
+
+  const { target, x, y } = landing;
+  const cls = data.classesById[player.classId]!;
+  const element = isRaptor ? 'Wind' : 'Fire';
+  const angle = Math.atan2(target.y - y, target.x - x);
+  player.lastCritCapstoneMs = elapsedMs;
+  player.x = x;
+  player.y = y;
+  player.facingX = Math.cos(angle);
+  player.facingY = Math.sin(angle);
+  if (isRaptor) player.sprintMomentum = Math.min(1, player.sprintMomentum + 0.2);
+  state.events.push(
+    { type: 'dash_trail', fromX, fromY, toX: x, toY: y, spriteId: cls.spriteId, element },
+    { type: 'slash', x, y, angle, radius: 1.5, element, weaponType: cls.weaponType, fromPlayer: true },
+    { type: 'sfx', sfx: isRaptor ? 'katana' : 'greatsword' }
+  );
+  damageMob(state, data, target, Math.round(atk * (isRaptor ? 0.75 : 0.85)), element, false, CRIT_CAPSTONE_HIT);
+}
+
+function triggerCritCapstone(state: GameState, data: GameData, mob: MobEntity, dealt: number, derived: DerivedStats): void {
+  const { player } = state;
+  switch (player.classId) {
+    case 'trex':
+    case 'velociraptor':
+      tryCritTeleport(state, data, mob, derived.atk);
+      break;
+    case 'triceratops': {
+      if ((state.boonRanks.boon_cap_crit_trike ?? 0) <= 0) return;
+      const elapsedMs = state.stats.elapsedMs;
+      if (elapsedMs - (player.lastCritCapstoneMs ?? -Infinity) < 450) return;
+      player.lastCritCapstoneMs = elapsedMs;
+      const radius = 3.2;
+      const damage = Math.round(derived.atk * 0.8);
+      state.events.push(
+        { type: 'impact', x: mob.x, y: mob.y, radius, element: 'Earth', heavy: false },
+        { type: 'sfx', sfx: 'slam' }
+      );
+      for (const other of state.mobs) {
+        if (other.hp <= 0 || Math.hypot(other.x - mob.x, other.y - mob.y) > radius) continue;
+        other.stunMs = Math.max(other.stunMs, 500);
+        damageMob(state, data, other, damage, 'Earth', false, CRIT_CAPSTONE_HIT);
+      }
+      break;
+    }
+    case 'dodo':
+    case 'pteranodon': {
+      const isDodo = player.classId === 'dodo';
+      const boonId = isDodo ? 'boon_cap_crit_dodo' : 'boon_cap_crit_ptera';
+      if ((state.boonRanks[boonId] ?? 0) <= 0) return;
+      if (isDodo) {
+        const { maxSp } = computeDerivedStats(state, data);
+        player.sp = Math.min(maxSp, player.sp + 6);
+      }
+
+      const hitIds = new Set([mob.id]);
+      const range = isDodo ? 6.5 : 7.5;
+      const damage = Math.round(dealt * (isDodo ? derived.critLightningRatio : 0.8));
+      let origin = mob;
+      for (let hop = 0; hop < (isDodo ? 2 : 1); hop++) {
+        const target = findNearestMob(state, range, origin, hitIds);
+        if (!target) break;
+        if (hop === 0) state.events.push({ type: 'sfx', sfx: isDodo ? 'wind' : 'bow' });
+        state.events.push({ type: 'lightning_arc', fromX: origin.x, fromY: origin.y, toX: target.x, toY: target.y });
+        hitIds.add(target.id);
+        damageMob(state, data, target, damage, 'Wind', false, CRIT_CAPSTONE_HIT);
+        origin = target;
+      }
+      break;
+    }
+  }
 }
 
 export function damageMob(
@@ -197,33 +311,6 @@ export function damageMob(
       mob.bleedDps = Math.max(mob.bleedDps, Math.round(Math.max(derived.atk, derived.matk) * 0.48));
     }
 
-    // Crit Chain Lightning capstone (Tormenta Crítica)
-    if (isCrit && derived.critLightningRatio > 0) {
-      let chainTarget: MobEntity | null = null;
-      let chainDist = 4.8;
-      for (const other of state.mobs) {
-        if (other.id === mob.id || other.hp <= 0) continue;
-        const d = Math.hypot(other.x - mob.x, other.y - mob.y);
-        if (d <= chainDist) {
-          chainDist = d;
-          chainTarget = other;
-        }
-      }
-      if (chainTarget) {
-        state.events.push({
-          type: 'lightning_arc',
-          fromX: mob.x,
-          fromY: mob.y,
-          toX: chainTarget.x,
-          toY: chainTarget.y,
-        });
-        state.events.push({ type: 'sfx', sfx: 'wind' });
-        damageMob(state, data, chainTarget, dealt * derived.critLightningRatio, 'Wind', false, {
-          allowRelics: false,
-        });
-      }
-    }
-
     // Volcanic Core Fire Burst capstone (Núcleo Volcánico)
     if (derived.fireBurstOnHitChance > 0 && rng.next() < derived.fireBurstOnHitChance) {
       const blastR = 2.1 * derived.areaMult;
@@ -272,9 +359,12 @@ export function damageMob(
 
   if (mob.hp <= 0) {
     handleMobDeath(state, data, mob);
-    return { dealt, killed: true, isCrit };
   }
-  return { dealt, killed: false, isCrit };
+  // Finish resolving the primary hit before a shockwave can hit the same mob.
+  if (isCrit && options?.allowRelics !== false) {
+    triggerCritCapstone(state, data, mob, dealt, derived);
+  }
+  return { dealt, killed: mob.hp <= 0, isCrit };
 }
 
 export function handleMobDeath(state: GameState, data: GameData, mob: MobEntity): void {
@@ -546,14 +636,16 @@ function castPlayerSkill(
 
   switch (skill.template) {
     case 'melee_arc': {
+      const fromX = player.x;
+      const fromY = player.y;
       const reach = skill.range * (isBasic ? 1 : derived.areaMult);
       const halfArc = (((skill.arcDeg ?? 110) * Math.PI) / 180) * 0.5;
       const hitCount = skill.hits ?? 1;
 
       state.events.push({
         type: 'slash',
-        x: player.x,
-        y: player.y,
+        x: fromX,
+        y: fromY,
         angle,
         radius: reach,
         element: skill.element,
@@ -563,8 +655,8 @@ function castPlayerSkill(
 
       for (const mob of [...state.mobs]) {
         if (mob.hp <= 0) continue;
-        const mdx = mob.x - player.x;
-        const mdy = mob.y - player.y;
+        const mdx = mob.x - fromX;
+        const mdy = mob.y - fromY;
         const md = Math.hypot(mdx, mdy);
         if (md > reach + 0.55) continue;
         const mAngle = Math.atan2(mdy, mdx);
@@ -578,6 +670,8 @@ function castPlayerSkill(
           const res = damageMob(state, data, mob, rawDamage, skill.element, skill.isPhysical, {
             ignoreDefRatio: skill.ignoreDefRatio,
             knockback: h === hitCount - 1 ? skill.knockback : 0,
+            fromX,
+            fromY,
             stunMs: skill.stunMs,
             bleedMs: skill.bleedMs,
           });
@@ -588,8 +682,8 @@ function castPlayerSkill(
       if (skill.isUltimate) {
         state.events.push({
           type: 'impact',
-          x: player.x + dirX * 2.2,
-          y: player.y + dirY * 2.2,
+          x: fromX + dirX * 2.2,
+          y: fromY + dirY * 2.2,
           radius: reach * 0.75,
           element: skill.element,
           heavy: true,
@@ -661,11 +755,11 @@ function castPlayerSkill(
         element: skill.element,
       });
       const radius = (skill.radius ?? 2.3) * derived.areaMult;
-      state.events.push({ type: 'impact', x: player.x, y: player.y, radius, element: skill.element, heavy: true });
+      state.events.push({ type: 'impact', x: dest.x, y: dest.y, radius, element: skill.element, heavy: true });
       state.events.push({
         type: 'slash',
-        x: player.x,
-        y: player.y,
+        x: dest.x,
+        y: dest.y,
         angle,
         radius: radius * 1.15,
         element: skill.element,
@@ -675,9 +769,11 @@ function castPlayerSkill(
 
       for (const mob of [...state.mobs]) {
         if (mob.hp <= 0) continue;
-        if (Math.hypot(mob.x - player.x, mob.y - player.y) <= radius + 0.45) {
+        if (Math.hypot(mob.x - dest.x, mob.y - dest.y) <= radius + 0.45) {
           const res = damageMob(state, data, mob, rawDamage, skill.element, skill.isPhysical, {
             knockback: skill.knockback,
+            fromX: dest.x,
+            fromY: dest.y,
             stunMs: skill.stunMs,
           });
           hits += 1;
@@ -729,6 +825,8 @@ function castPlayerSkill(
         if (Math.hypot(mob.x - cx, mob.y - cy) <= hitRadius + 0.45) {
           const res = damageMob(state, data, mob, rawDamage, skill.element, skill.isPhysical, {
             knockback: skill.knockback,
+            fromX: dest.x,
+            fromY: dest.y,
             stunMs: skill.stunMs,
             bleedMs: skill.bleedMs,
           });
@@ -757,12 +855,14 @@ function castPlayerSkill(
       const totalHits = skill.hits ?? 7;
       const searchRange = skill.range * derived.areaMult;
       player.invulnMs = Math.max(player.invulnMs, 1500);
-      let curX = player.x;
-      let curY = player.y;
+      const fromX = player.x;
+      const fromY = player.y;
+      let curX = fromX;
+      let curY = fromY;
 
       for (let step = 0; step < totalHits; step++) {
         const candidates = state.mobs.filter(
-          (m) => m.hp > 0 && Math.hypot(m.x - player.x, m.y - player.y) <= searchRange
+          (m) => m.hp > 0 && Math.hypot(m.x - fromX, m.y - fromY) <= searchRange
         );
         if (candidates.length === 0) break;
         const picked = candidates[step % candidates.length]!;
@@ -800,16 +900,20 @@ function castPlayerSkill(
     }
 
     case 'nova': {
+      const fromX = player.x;
+      const fromY = player.y;
       const radius = (skill.radius ?? 3.0) * derived.areaMult;
-      state.events.push({ type: 'impact', x: player.x, y: player.y, radius, element: skill.element, heavy: true });
+      state.events.push({ type: 'impact', x: fromX, y: fromY, radius, element: skill.element, heavy: true });
       if (skill.buffId && skill.buffDurationMs) {
         addPlayerBuff(state, skill.buffId, skill.buffDurationMs);
       }
       for (const mob of [...state.mobs]) {
         if (mob.hp <= 0) continue;
-        if (Math.hypot(mob.x - player.x, mob.y - player.y) <= radius + 0.45) {
+        if (Math.hypot(mob.x - fromX, mob.y - fromY) <= radius + 0.45) {
           const res = damageMob(state, data, mob, rawDamage, skill.element, skill.isPhysical, {
             knockback: skill.knockback,
+            fromX,
+            fromY,
             stunMs: skill.stunMs,
           });
           hits += 1;

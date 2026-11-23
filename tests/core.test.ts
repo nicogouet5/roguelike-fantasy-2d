@@ -254,6 +254,35 @@ describe('DinoBlade Core & Data Validation', () => {
     expect(state.player.buffs.some((b) => b.id === 'food_italiano')).toBe(true);
   });
 
+  it('spreads wave spawns across the 44x44 arenas with high distance variance instead of a ring', () => {
+    for (const floorIndex of [0, 1, 2]) {
+      for (const seed of ['spread-a', 'spread-b', 'spread-c']) {
+        const state = createGameState(data, { classId: 'trex', seed, floorIndex });
+        expect(state.zone.width, state.zone.mapId).toBe(44);
+        expect(state.zone.height, state.zone.mapId).toBe(44);
+        const waves = [state.mobs.slice()];
+        // Trigger the next timed wave on an empty arena.
+        state.mobs.length = 0;
+        state.waveTimerMs = 1;
+        stepGame(state, data, 16, { moveX: 0, moveY: 0 });
+        waves.push(state.mobs.slice());
+        for (const mobs of waves) {
+          const where = `${state.zone.mapId}/${seed}`;
+          expect(mobs.length, where).toBeGreaterThanOrEqual(8);
+          const dists = mobs.map((m) => Math.hypot(m.x - state.player.x, m.y - state.player.y));
+          for (const [i, mob] of mobs.entries()) {
+            expect(isWalkable(state.zone, mob.x, mob.y), `${where} ${mob.id} walkable`).toBe(true);
+            expect(dists[i]!, `${where} ${mob.id} distance`).toBeGreaterThanOrEqual(6.0);
+          }
+          const mean = dists.reduce((a, b) => a + b, 0) / dists.length;
+          const std = Math.sqrt(dists.reduce((a, d) => a + (d - mean) ** 2, 0) / dists.length);
+          expect(Math.max(...dists) - Math.min(...dists), `${where} distance range`).toBeGreaterThanOrEqual(6.0);
+          expect(std, `${where} distance std`).toBeGreaterThanOrEqual(2.0);
+        }
+      }
+    }
+  });
+
   it('spawns overlapping timed waves even with mobs alive and auto-advances to the next zone when final wave clears', () => {
     const state = createGameState(data, { classId: 'velociraptor', seed: 'wave-test' });
     expect(state.floorIndex).toBe(0);
@@ -389,9 +418,8 @@ describe('DinoBlade Core & Data Validation', () => {
       expect(hasWalkablePath(zone, zone.spawn, { x: def.width / 2, y: def.height / 2 })).toBe(true);
     }
     const bridge = generateZoneMap(data.mapsByFloor[1]!, 'bridge');
-    expect(isWalkable(bridge, 5.5, bridge.height / 2 + 9)).toBe(true);
-    // Between the mid plaza and the south catwalk there is only chasm.
-    expect(isWalkable(bridge, bridge.width / 2, bridge.height / 2 + 10)).toBe(false);
+    expect(isWalkable(bridge, 5.5, bridge.height / 2 + 0.5)).toBe(true); // north-west plank deck
+    expect(isWalkable(bridge, 5.5, bridge.height / 2 + 9)).toBe(false); // lava abyss off the west corner
   });
 
   it('lets only the flying Pteranodon cross authored walls and abyss tiles', () => {
@@ -486,5 +514,173 @@ describe('DinoBlade Core & Data Validation', () => {
     stepGame(state, data, 50, { moveX: 1, moveY: 0 });
     expect(state.pet.lastAction === 'overclock' || state.pet.lastAction === 'shield').toBe(true);
     expect(state.player.buffs.some((b) => b.id === 'codex_overclock' || b.id === 'codex_shield')).toBe(true);
+  });
+});
+
+describe('Class-specific critical capstones', () => {
+  const data = loadGameData();
+  const capstones = [
+    { classId: 'trex', boonId: 'boon_cap_crit_trex', critChance: 0.12, defense: 0 },
+    { classId: 'velociraptor', boonId: 'boon_cap_crit_raptor', critChance: 0.14, defense: 0 },
+    { classId: 'triceratops', boonId: 'boon_cap_crit_trike', critChance: 0.12, defense: 15 },
+    { classId: 'dodo', boonId: 'boon_cap_crit_dodo', critChance: 0.12, defense: 0 },
+    { classId: 'pteranodon', boonId: 'boon_cap_crit_ptera', critChance: 0.14, defense: 0 },
+  ];
+
+  function setup(classId: string, boonId: string) {
+    const state = createGameState(data, { classId, seed: 'crit-capstone' });
+    state.mobs.length = 0;
+    state.zone.tiles.fill('ground');
+    state.player.x = 12.5;
+    state.player.y = 12.5;
+    state.boonRanks[boonId] = 1;
+    function spawn(x: number, y: number) {
+      const mob = spawnMob(state, data, 'compsognathus', x, y);
+      mob.hp = 1000;
+      mob.maxHp = 1000;
+      return mob;
+    }
+    return { state, spawn };
+  }
+
+  it.each(capstones)('$classId rolls only its own critical capstone and gains its stats', ({ classId, boonId, critChance, defense }) => {
+    const state = createGameState(data, { classId, seed: 'crit-capstone-pool' });
+    const eligible = () => getEligibleBoons(state, data).filter((boon) => boon.id.startsWith('boon_cap_crit_'));
+    expect(eligible().map((boon) => boon.id)).toEqual([boonId]);
+
+    const base = computeDerivedStats(state, data);
+    state.pendingOffer = { source: 'chest', choices: [boonId], synergyIds: [] };
+    expect(pickBoon(state, data, boonId)).toBe(true);
+    const upgraded = computeDerivedStats(state, data);
+    expect(upgraded.critChance - base.critChance).toBeCloseTo(critChance);
+    expect(upgraded.hardDef - base.hardDef).toBe(defense);
+    expect(eligible()).toHaveLength(0);
+  });
+
+  it.each([
+    { classId: 'trex', boonId: 'boon_cap_crit_trex', cooldown: 450, blockedX: 16, element: 'Fire', sfx: 'greatsword' },
+    { classId: 'velociraptor', boonId: 'boon_cap_crit_raptor', cooldown: 350, blockedX: 18, element: 'Wind', sfx: 'katana' },
+  ])('$classId teleports to a walkable side of the nearest enemy and strikes immediately', ({
+    classId, boonId, cooldown, blockedX, element, sfx,
+  }) => {
+    const { state, spawn } = setup(classId, boonId);
+    const primary = spawn(13.5, 12.5);
+    const target = spawn(17.5, 12.5);
+    const farther = spawn(19.5, 12.5);
+    const { player } = state;
+    player.sprintMomentum = classId === 'velociraptor' ? 0.75 : 0;
+    state.zone.tiles[12 * state.zone.width + blockedX] = 'wall';
+    const crit = () => damageMob(state, data, primary, 10, 'Neutral', true, { forceCrit: true });
+
+    crit();
+    const landingDistance = Math.hypot(player.x - target.x, player.y - target.y);
+    expect(landingDistance).toBeCloseTo(1.1);
+    expect(isWalkable(state.zone, player.x, player.y)).toBe(true);
+    expect(player.y).not.toBe(12.5);
+    expect(player.facingX).toBeCloseTo((target.x - player.x) / landingDistance);
+    expect(player.facingY).toBeCloseTo((target.y - player.y) / landingDistance);
+    expect(state.events).toContainEqual(expect.objectContaining({ type: 'dash_trail', fromX: 12.5, fromY: 12.5, toX: player.x, toY: player.y, element }));
+    expect(state.events).toContainEqual(expect.objectContaining({ type: 'slash', x: player.x, y: player.y, element }));
+    expect(state.events).toContainEqual({ type: 'sfx', sfx });
+    expect(state.events).toContainEqual(expect.objectContaining({ type: 'damage', targetId: target.id, element, isCrit: false }));
+    expect(target.hp).toBeLessThan(target.maxHp);
+    expect(farther.hp).toBe(farther.maxHp);
+    expect(player.sprintMomentum).toBeCloseTo(classId === 'velociraptor' ? 0.95 : 0);
+
+    const hpAfterFirst = target.hp;
+    state.stats.elapsedMs = cooldown - 1;
+    crit();
+    expect(target.hp).toBe(hpAfterFirst);
+    expect(state.events.filter((event) => event.type === 'dash_trail')).toHaveLength(1);
+
+    state.stats.elapsedMs = cooldown;
+    crit();
+    expect(target.hp).toBeLessThan(hpAfterFirst);
+    expect(state.events.filter((event) => event.type === 'dash_trail')).toHaveLength(2);
+    expect(player.sprintMomentum).toBe(classId === 'velociraptor' ? 1 : 0);
+  });
+
+  it('keeps the T-Rex primary swing at its original position after a teleport', () => {
+    const { state, spawn } = setup('trex', 'boon_cap_crit_trex');
+    const primary = spawn(13.5, 12.5);
+    const otherOriginalTarget = spawn(15.5, 12.5);
+    const distant = spawn(17.5, 12.5);
+    state.rngCombatState = 7; // The first combat roll is below the T-Rex's crit chance.
+
+    const result = cast(state, data, 'player', 'rex_cleave_basic', primary);
+    expect(result.hits).toBe(2);
+    expect(state.events.filter((event) => event.type === 'damage' && event.targetId === otherOriginalTarget.id)).toHaveLength(2);
+    expect(distant.hp).toBe(distant.maxHp);
+  });
+
+  it('stuns and damages every living mob in the Triceratops shockwave once per cooldown', () => {
+    const { state, spawn } = setup('triceratops', 'boon_cap_crit_trike');
+    const primary = spawn(14.5, 12.5);
+    const nearby = spawn(17.6, 12.5);
+    const outside = spawn(17.8, 12.5);
+    primary.hp = 2;
+    nearby.stunMs = 600;
+    const crit = (target: typeof primary) => damageMob(state, data, target, 1, 'Neutral', true, { forceCrit: true });
+
+    expect(crit(primary).killed).toBe(true);
+    expect(state.stats.kills).toBe(1);
+    expect(primary.stunMs).toBe(500);
+    expect(nearby.hp).toBeLessThan(nearby.maxHp);
+    expect(nearby.stunMs).toBe(600);
+    expect(outside.hp).toBe(outside.maxHp);
+    expect(outside.stunMs).toBe(0);
+    expect(state.events).toContainEqual({ type: 'impact', x: primary.x, y: primary.y, radius: 3.2, element: 'Earth', heavy: false });
+    expect(state.events).toContainEqual({ type: 'sfx', sfx: 'slam' });
+
+    state.stats.elapsedMs = 449;
+    crit(nearby);
+    expect(outside.hp).toBe(outside.maxHp);
+    state.stats.elapsedMs = 450;
+    crit(nearby);
+    expect(outside.hp).toBeLessThan(outside.maxHp);
+    expect(outside.stunMs).toBe(500);
+  });
+
+  it('chains Dodo lightning through two distinct targets and restores up to 6 SP', () => {
+    const { state, spawn } = setup('dodo', 'boon_cap_crit_dodo');
+    const primary = spawn(14.5, 12.5);
+    const first = spawn(16.5, 12.5);
+    const second = spawn(22.5, 12.5);
+    const third = spawn(23.5, 12.5);
+    state.player.sp = 10;
+
+    damageMob(state, data, primary, 20, 'Neutral', false, { forceCrit: true });
+    expect(state.player.sp).toBe(16);
+    expect(first.hp).toBeLessThan(first.maxHp);
+    expect(second.hp).toBeLessThan(second.maxHp);
+    expect(third.hp).toBe(third.maxHp);
+    expect(state.events.filter((event) => event.type === 'lightning_arc')).toEqual([
+      { type: 'lightning_arc', fromX: primary.x, fromY: primary.y, toX: first.x, toY: first.y },
+      { type: 'lightning_arc', fromX: first.x, fromY: first.y, toX: second.x, toY: second.y },
+    ]);
+
+    const { maxSp } = computeDerivedStats(state, data);
+    state.player.sp = maxSp - 2;
+    damageMob(state, data, primary, 20, 'Neutral', false, { forceCrit: true });
+    expect(state.player.sp).toBe(maxSp);
+  });
+
+  it('ricochets Pteranodon wind damage once from the crit target and respects proc suppression', () => {
+    const { state, spawn } = setup('pteranodon', 'boon_cap_crit_ptera');
+    const primary = spawn(21.5, 12.5);
+    const nearest = spawn(28.5, 12.5);
+    const farther = spawn(29, 12.5);
+    damageMob(state, data, primary, 20, 'Neutral', true, { forceCrit: false });
+    damageMob(state, data, primary, 20, 'Neutral', true, { forceCrit: true, allowRelics: false });
+    expect(nearest.hp).toBe(nearest.maxHp);
+    expect(state.events.filter((event) => event.type === 'lightning_arc')).toHaveLength(0);
+
+    damageMob(state, data, primary, 20, 'Neutral', true, { forceCrit: true });
+    expect(nearest.hp).toBeLessThan(nearest.maxHp);
+    expect(farther.hp).toBe(farther.maxHp);
+    expect(state.events.filter((event) => event.type === 'lightning_arc')).toEqual([
+      { type: 'lightning_arc', fromX: primary.x, fromY: primary.y, toX: nearest.x, toY: nearest.y },
+    ]);
+    expect(state.events).toContainEqual(expect.objectContaining({ type: 'damage', targetId: nearest.id, element: 'Wind', isCrit: false }));
   });
 });

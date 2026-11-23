@@ -8,6 +8,7 @@ import { renderScenarioVisuals } from './scenarioRenderer.ts';
 import { addScenarioSurface, surfaceEdgeDistance } from './scenarioSurfaces.ts';
 import { scenarioStyle } from '../core/scenarioLayouts.ts';
 import { addScenarioDressing } from './scenarioDressing.ts';
+import { renderPaintedArena } from './paintedMaps.ts';
 
 export interface MapVisuals {
   tiles: Phaser.GameObjects.Image[];
@@ -31,8 +32,13 @@ export function renderMapVisuals(
   hasPortal: boolean,
   isBossZone = false
 ): MapVisuals {
-  // The first three Falla 23 scenarios have their own painted-from-mockup renderer.
+  // Hand-painted arena first; the procedural renderers below are the fallback
+  // when the painting is missing.
   const style = scenarioStyle(palette.id);
+  if (style) {
+    const painted = renderPaintedArena(scene, zone, style, palette, hasPortal, isBossZone);
+    if (painted) return painted;
+  }
   const scenario = isBossZone ? null : renderScenarioVisuals(scene, zone, palette, hasPortal);
   if (scenario) {
     if (style) scenario.tiles.push(...addScenarioDressing(scene, zone, style));

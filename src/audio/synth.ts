@@ -1,6 +1,7 @@
 import type { SfxKind } from '../core/types.ts';
 
 export type MusicMode = 'ambient' | 'boss';
+export type MusicTrackId = 'floor1' | 'floor2' | 'floor3' | 'boss';
 
 /**
  * Original score material for Bodoque Hoja-Abisal.  A score cycle is sixteen
@@ -56,7 +57,9 @@ type ScoreBar = {
 };
 
 const MUSIC_TICK_MS = 300;
-const MUSIC_VOLUME = 0.26;
+const MUSIC_VOLUME = 0.45;
+const TRACK_VOLUME = 0.8;
+const TRACK_FADE_MS = 450;
 const hzFromMidi = (midi: number): number => 440 * 2 ** ((midi - 69) / 12);
 
 interface SfxBankEntry {
@@ -208,9 +211,10 @@ const SFX_BANK: Record<SfxKind, SfxBankEntry> = {
   },
 };
 
-/** Combines Soulslike WAV SFX buffers with procedural dark-ambient & boss music mix. */
+/** Plays streamed music and WAV SFX with procedural fallbacks. */
 class DinoAudioManager {
   private ctx: AudioContext | null = null;
+  private unlocked = false;
   private muted = false;
   private buffers = new Map<string, AudioBuffer>();
   private loadingStarted = false;
@@ -218,6 +222,12 @@ class DinoAudioManager {
   private variantCounter = new Map<SfxKind, number>();
 
   private musicTimer: number | null = null;
+  private musicTrack: MusicTrackId | null = null;
+  private musicAudio: HTMLAudioElement | null = null;
+  private outgoingMusicAudio: HTMLAudioElement | null = null;
+  private musicPlayback: Promise<void> | null = null;
+  private musicFailure: 'blocked' | 'failed' | null = null;
+  private musicFadeTimer: number | null = null;
   private cutscenePlaying = false;
   private musicStep = 0;
   private musicMode: MusicMode = 'ambient';
@@ -229,13 +239,15 @@ class DinoAudioManager {
 
   unlock(): void {
     if (typeof window === 'undefined') return;
+    this.unlocked = true;
     if (!this.ctx) this.createGraph();
     if (this.ctx?.state === 'suspended') void this.ctx.resume();
     if (this.ctx && !this.loadingStarted) {
       this.loadingStarted = true;
       void this.preloadAll(this.ctx);
     }
-    this.startMusic();
+    if (this.musicFailure === 'blocked') this.musicFailure = null;
+    this.syncMusic();
   }
 
   private async preloadAll(ctx: AudioContext): Promise<void> {
@@ -268,42 +280,60 @@ class DinoAudioManager {
       this.master.gain.cancelScheduledValues(this.ctx.currentTime);
       this.master.gain.setTargetAtTime(this.muted ? 0.0001 : 0.72, this.ctx.currentTime, 0.025);
     }
-    if (this.muted) this.stopMusic();
-    else this.startMusic();
+    this.syncMusic();
     return this.muted;
   }
 
   setMusicMode(mode: MusicMode): void {
-    // GameScene calls this when the final map loads and calls it once more for
-    // the existing `boss_phase` event.  Keeping this behaviour here means the
-    // score can grow at phase two without coupling audio to combat internals.
-    if (this.musicMode === mode) {
-      if (mode === 'boss' && this.bossPhase === 1) {
-        this.bossPhase = 2;
-        this.musicStep = 0;
-        if (!this.muted && this.ctx?.state === 'running') this.playBossPhaseSting();
-      }
+    if (mode === 'ambient') {
+      this.setMusicTrack(this.musicTrack === 'boss' ? 'floor1' : this.musicTrack ?? 'floor1');
       return;
     }
+
+    if (this.musicTrack !== 'boss') {
+      this.setMusicTrack('boss');
+    } else if (this.bossPhase === 1) {
+      // The boss phase event advances the fallback score without restarting the MP3.
+      this.bossPhase = 2;
+      this.musicStep = 0;
+      if (this.musicTimer !== null) this.playBossPhaseSting();
+    }
+  }
+
+  setMusicTrack(track: MusicTrackId | null): void {
+    if (this.musicTrack === track) return;
+
+    this.clearMusicFade();
+    this.musicPlayback = null;
+    const previous = this.musicAudio;
+    this.musicAudio = null;
+    if (previous) {
+      if (!previous.paused && previous.volume > 0) {
+        this.releaseOutgoingMusic();
+        this.outgoingMusicAudio = previous;
+      } else {
+        this.releaseMusicAudio(previous);
+      }
+    }
+
+    const mode = track === 'boss' ? 'boss' : 'ambient';
+    const modeChanged = this.musicMode !== mode;
+    this.musicTrack = track;
+    this.musicFailure = null;
     this.musicMode = mode;
     this.bossPhase = 1;
     this.musicStep = 0;
-    if (!this.cutscenePlaying && !this.muted && this.ctx?.state === 'running') this.playModeSting(mode);
+
+    this.syncMusic();
+    if (track === null) this.fadeMusic(null);
+    else if (modeChanged && this.musicTimer !== null) this.playModeSting(mode);
   }
 
   setCutscenePlaying(active: boolean): void {
     if (this.cutscenePlaying === active) return;
     this.cutscenePlaying = active;
 
-    if (this.musicBus && this.ctx) {
-      const now = this.ctx.currentTime;
-      this.musicBus.gain.cancelScheduledValues(now);
-      if (active) this.musicBus.gain.setValueAtTime(0, now);
-      else this.musicBus.gain.setTargetAtTime(MUSIC_VOLUME, now, 0.035);
-    }
-
-    if (active) this.stopMusic();
-    else this.startMusic();
+    this.syncMusic();
   }
 
   /** Punchy layered impact SFX triggered on every player hit (melee, ranged, crit, weakness). */
@@ -463,7 +493,7 @@ class DinoAudioManager {
     if (!AC) return;
     this.ctx = new AC();
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.72;
+    this.master.gain.value = this.muted ? 0.0001 : 0.72;
     const compressor = this.ctx.createDynamicsCompressor();
     compressor.threshold.value = -22;
     compressor.knee.value = 16;
@@ -473,9 +503,9 @@ class DinoAudioManager {
     this.musicBus = this.ctx.createGain();
     // The score can carry several synthesized voices at once; leave ample
     // headroom for combat SFX before the final master compressor.
-    this.musicBus.gain.value = this.cutscenePlaying ? 0 : MUSIC_VOLUME;
+    this.musicBus.gain.value = 0;
     this.sfxBus = this.ctx.createGain();
-    this.sfxBus.gain.value = 0.9;
+    this.sfxBus.gain.value = 0.34;
     this.musicBus.connect(this.master);
     this.sfxBus.connect(this.master);
     this.master.connect(compressor);
@@ -558,8 +588,108 @@ class DinoAudioManager {
     this.noise(duration * 0.72, enraged ? 0.085 : 0.045, 'bandpass', enraged ? 320 : 430, 0.03);
   }
 
+  private syncMusic(): void {
+    if (!this.unlocked || this.muted || this.cutscenePlaying) {
+      this.stopMusic();
+      this.clearMusicFade();
+      this.releaseOutgoingMusic();
+      this.musicPlayback = null;
+      if (this.musicAudio) {
+        this.musicAudio.muted = this.muted;
+        this.musicAudio.pause();
+      }
+      return;
+    }
+
+    if (this.musicTrack === null) {
+      this.stopMusic();
+      return;
+    }
+
+    if (this.musicFailure || typeof Audio === 'undefined') {
+      this.releaseOutgoingMusic();
+      this.startMusic();
+      return;
+    }
+
+    this.stopMusic();
+    if (!this.musicAudio) {
+      const audio = new Audio(`./assets/music/bgm_${this.musicTrack}.mp3`);
+      audio.loop = true;
+      audio.preload = 'auto';
+      audio.onerror = () => this.fallbackFromTrack(audio);
+      this.musicAudio = audio;
+    }
+
+    const audio = this.musicAudio;
+    if (this.musicPlayback || !audio.paused) return;
+    audio.muted = false;
+    audio.volume = 0;
+    try {
+      const playback = audio.play();
+      this.musicPlayback = playback;
+      void playback.then(() => {
+        if (this.musicPlayback !== playback) return;
+        this.musicPlayback = null;
+        this.fadeMusic(audio);
+      }, (error: unknown) => {
+        if (this.musicPlayback === playback) this.fallbackFromTrack(audio, error);
+      });
+    } catch (error) {
+      this.fallbackFromTrack(audio, error);
+    }
+  }
+
+  private fallbackFromTrack(audio: HTMLAudioElement, error?: unknown): void {
+    if (this.musicAudio !== audio) return;
+    this.musicAudio = null;
+    this.musicPlayback = null;
+    // Another user gesture can unlock media after an autoplay rejection.
+    this.musicFailure = error instanceof Error && error.name === 'NotAllowedError' ? 'blocked' : 'failed';
+    this.clearMusicFade();
+    this.releaseMusicAudio(audio);
+    this.syncMusic();
+  }
+
+  private fadeMusic(incoming: HTMLAudioElement | null): void {
+    const outgoing = this.outgoingMusicAudio;
+    if (!incoming && !outgoing) return;
+    this.clearMusicFade();
+    const start = performance.now();
+    const outgoingVolume = outgoing?.volume ?? 0;
+    this.musicFadeTimer = window.setInterval(() => {
+      const progress = Math.min((performance.now() - start) / TRACK_FADE_MS, 1);
+      if (incoming) incoming.volume = TRACK_VOLUME * progress;
+      if (outgoing) outgoing.volume = outgoingVolume * (1 - progress);
+      if (progress === 1) {
+        this.clearMusicFade();
+        this.releaseOutgoingMusic();
+      }
+    }, 15);
+  }
+
+  private clearMusicFade(): void {
+    if (this.musicFadeTimer === null) return;
+    window.clearInterval(this.musicFadeTimer);
+    this.musicFadeTimer = null;
+  }
+
+  private releaseOutgoingMusic(): void {
+    if (!this.outgoingMusicAudio) return;
+    this.releaseMusicAudio(this.outgoingMusicAudio);
+    this.outgoingMusicAudio = null;
+  }
+
+  private releaseMusicAudio(audio: HTMLAudioElement): void {
+    audio.onerror = null;
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+  }
+
   private startMusic(): void {
-    if (typeof window === 'undefined' || !this.ctx || this.muted || this.cutscenePlaying || this.musicTimer !== null) return;
+    if (!this.ctx || !this.musicBus || this.musicTimer !== null) return;
+    this.musicBus.gain.setTargetAtTime(MUSIC_VOLUME, this.ctx.currentTime, 0.035);
     this.musicTimer = window.setInterval(() => this.tickMusic(), MUSIC_TICK_MS);
     this.tickMusic();
   }
@@ -774,9 +904,13 @@ class DinoAudioManager {
   }
 
   private stopMusic(): void {
-    if (this.musicTimer !== null) {
-      window.clearInterval(this.musicTimer);
-      this.musicTimer = null;
+    if (this.musicTimer === null) return;
+    window.clearInterval(this.musicTimer);
+    this.musicTimer = null;
+    if (this.musicBus && this.ctx) {
+      // Notes already scheduled by the synth can outlast its timer.
+      this.musicBus.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.musicBus.gain.setValueAtTime(0, this.ctx.currentTime);
     }
   }
 }

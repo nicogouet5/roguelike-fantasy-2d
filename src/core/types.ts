@@ -315,6 +315,7 @@ export interface PlayerEntity {
   amber: number;
   basicCooldownMs: number;
   skillCooldowns: Record<string, number>;
+  lastCritCapstoneMs?: number;
   buffs: ActiveBuff[];
   hitFlashMs: number;
   attackAnimMs: number;

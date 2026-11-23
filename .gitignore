@@ -4,5 +4,7 @@ dist/
 *.log
 assets/Dark_Fantasy_Soulslike_SFX_Pack/
 assets/*.jpg
+assets/map_*.png
 assets/*.mp4
+assets/*.mp3
 .taste-skill/

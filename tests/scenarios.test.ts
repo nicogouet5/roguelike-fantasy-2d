@@ -2,11 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../src/core/data.ts';
 import { createGameState, stepGame } from '../src/core/engine.ts';
 import { generateZoneMap, hasWalkablePath, isWalkable, tileAt } from '../src/core/mapGen.ts';
+import { PAINTED_FRAMES, PAINTING_SIZE, gridToPainting, paintingToGrid, scenarioStyle } from '../src/core/scenarioLayouts.ts';
 
 const data = loadGameData();
 const SEEDS = ['alpha', 'dinoblade-2026', 'scenario-audit'];
 
 describe('Falla 23 scenario layouts', () => {
+  it('uses compact square maps', () => {
+    expect(data.mapsByFloor.length).toBe(4);
+    for (const def of data.mapsByFloor) {
+      expect(def.width, `${def.id} square`).toBe(def.height);
+      expect(def.width, `${def.id} compact`).toBeLessThanOrEqual(48);
+      const zone = generateZoneMap(def, 'square');
+      expect(zone.width, def.id).toBe(def.width);
+      expect(zone.height, def.id).toBe(def.height);
+    }
+  });
+
   it('keeps spawn, portal and boss spot walkable, clear and connected', () => {
     for (const seed of SEEDS) {
       for (const def of data.mapsByFloor) {
@@ -44,7 +56,7 @@ describe('Falla 23 scenario layouts', () => {
       if (min) {
         expect(zone.tiles.filter((t) => t === 'void').length, `${def.id} drop tiles`).toBeGreaterThan(min);
         expect(zone.tiles.filter((t) => t === 'path').length, `${def.id} routes`).toBeGreaterThan(60);
-        expect(def.width * def.height, `${def.id} size`).toBeGreaterThanOrEqual(3500);
+        expect(def.width * def.height, `${def.id} size`).toBeGreaterThanOrEqual(1800);
       }
     }
   });
@@ -79,6 +91,30 @@ describe('Falla 23 scenario layouts', () => {
         expect(Math.hypot(prop.x - zone.spawn.x, prop.y - zone.spawn.y), `${def.id} ${prop.id}`).toBeGreaterThan(2);
         expect(Math.hypot(prop.x - zone.portal.x, prop.y - zone.portal.y), `${def.id} ${prop.id}`).toBeGreaterThan(2);
       }
+    }
+  });
+
+  it('keeps every walkable tile on the hand-painted arena floor', () => {
+    for (const def of data.mapsByFloor) {
+      const style = scenarioStyle(def.paletteId);
+      expect(style, def.id).toBeDefined();
+      const frame = PAINTED_FRAMES[style!];
+      const zone = generateZoneMap(def, 'painted');
+      for (let y = 0; y < zone.height; y++) {
+        for (let x = 0; x < zone.width; x++) {
+          if (!isWalkable(zone, x + 0.5, y + 0.5)) continue;
+          // All four cell corners land inside the painting, clear of the feathered border.
+          for (const [cx, cy] of [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]] as const) {
+            const p = gridToPainting(frame, zone.width, zone.height, cx, cy);
+            expect(p.x > 0 && p.y > 0 && p.x < PAINTING_SIZE && p.y < PAINTING_SIZE, `${def.id} ${x},${y}`).toBe(true);
+          }
+        }
+      }
+      // The frame round-trips, so renderer and collision agree on where the painting sits.
+      const back = paintingToGrid(frame, zone.width, zone.height, 321, 987);
+      const again = gridToPainting(frame, zone.width, zone.height, back.x, back.y);
+      expect(again.x).toBeCloseTo(321, 6);
+      expect(again.y).toBeCloseTo(987, 6);
     }
   });
 

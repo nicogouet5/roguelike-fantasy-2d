@@ -1,18 +1,24 @@
 import type { MapDef, TileKind, ZoneMap } from './types.ts';
+import { gridToScreen, type Point2D } from './iso.ts';
 import { createRng } from './rng.ts';
 
 /**
- * Grid-space interpretations of the Falla 23 concept paintings.
+ * Grid-space interpretations of the four hand-painted Falla 23 arenas
+ * (`src/assets/maps/map_*.jpg`, drawn by `src/game/paintedMaps.ts`).
  *
  * Tile semantics shared with the renderer:
  *  - `ground`  walkable slab floor of courts, plazas and decks
- *  - `path`    walkable route (gallery ring, causeway, plank catwalk, processional road)
- *  - `void`    non-walkable drop: moat water (claustro), lava chasm (puente), lava (fortaleza)
+ *  - `path`    walkable route (bridges, plank decks, rune rings, sandstone roads)
+ *  - `void`    non-walkable drop: moat water (claustro), lava abyss (puente), lava grates (fortaleza)
  *  - `wall`    non-walkable masonry / rock
  *  - `portal`  walkable exit tile, always on a route or slab
  *
  * Grid +x runs to the lower right of the screen and +y to the lower left, so
  * the "back" of every scenario is the small-x / small-y side.
+ *
+ * Every shape below is measured in painting pixels (0..PAINTING_SIZE) and each
+ * grid cell is classified by projecting its centre into the painting, so the
+ * collision follows the artwork exactly as the renderer places it.
  */
 export type ScenarioStyle = 'cloister' | 'bridge' | 'fortress' | 'ossuary';
 
@@ -42,154 +48,205 @@ interface Layout {
   pieces: SetPiece[];
 }
 
-const within = (v: number, lo: number, hi: number): boolean => v >= lo && v <= hi;
+/** Side of the square hand-painted arena images, in pixels. */
+export const PAINTING_SIZE = 1400;
 
 /**
- * Claustro Mineral (jade and amber): a slab island court reached by four
- * causeways across the moat, ringed by an arcaded gallery road with four
- * garden courts and their ponds in the corners.
+ * How a painting sits on the isometric grid: painting pixel (anchorX, anchorY)
+ * lands on the grid centre and each painting pixel spans (scaleX, scaleY)
+ * screen pixels. The paintings use their own iso angle (about 1.4-1.8:1), so
+ * `scaleY / scaleX` flattens each one to the exact 2:1 projection of the grid.
  */
-function cloisterLayout(w: number, h: number): Layout {
-  const cx = w / 2;
-  const cy = h / 2;
-  const pieces: SetPiece[] = [];
-  for (const sx of [-1, 1]) {
-    for (const sy of [-1, 1]) {
-      pieces.push({ kind: 'brazier', x: Math.floor(cx + sx * 10.5), y: Math.floor(cy + sy * 10.5) });
-      pieces.push({ kind: 'crystal', x: Math.floor(cx + sx * 21), y: Math.floor(cy + sy * 15.5) });
-      pieces.push({ kind: 'rib', x: Math.floor(cx + sx * 15.5), y: Math.floor(cy + sy * 21) });
+export interface PaintedFrame {
+  anchorX: number;
+  anchorY: number;
+  scaleX: number;
+  scaleY: number;
+}
+
+export const PAINTED_FRAMES: Readonly<Record<ScenarioStyle, PaintedFrame>> = {
+  // Court diamond 1355x940 px (1.44:1) -> 23x23 tiles.
+  cloister: { anchorX: 697, anchorY: 720, scaleX: 1.1, scaleY: 0.792 },
+  // Platform diamond 1330x775 px (1.72:1) -> 28x28 tiles.
+  bridge: { anchorX: 700, anchorY: 615, scaleX: 1.35, scaleY: 1.161 },
+  // Floor rails run at 1.77:1; the anchor is the crossing of the sandstone roads.
+  fortress: { anchorX: 700, anchorY: 760, scaleX: 1.05, scaleY: 0.929 },
+  // Top-down pit: the 1214x1100 px floor ellipse becomes a circle of radius 12 tiles.
+  ossuary: { anchorX: 700, anchorY: 700, scaleX: 0.895, scaleY: 0.4936 },
+};
+
+/** Painting pixel under a grid point. */
+export function gridToPainting(frame: PaintedFrame, width: number, height: number, gx: number, gy: number): Point2D {
+  const centre = gridToScreen(width / 2, height / 2);
+  const p = gridToScreen(gx, gy);
+  return { x: frame.anchorX + (p.x - centre.x) / frame.scaleX, y: frame.anchorY + (p.y - centre.y) / frame.scaleY };
+}
+
+/** Grid point under a painting pixel. */
+export function paintingToGrid(frame: PaintedFrame, width: number, height: number, px: number, py: number): Point2D {
+  const centre = gridToScreen(width / 2, height / 2);
+  const sx = centre.x + (px - frame.anchorX) * frame.scaleX;
+  const sy = centre.y + (py - frame.anchorY) * frame.scaleY;
+  // Inverse of gridToScreen (64x32 tiles).
+  return { x: (sx / 32 + sy / 16) / 2, y: (sy / 16 - sx / 32) / 2 };
+}
+
+type Poly = readonly (readonly [number, number])[];
+
+function inPoly(p: Point2D, poly: Poly): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i]!;
+    const [xj, yj] = poly[j]!;
+    if ((yi > p.y) !== (yj > p.y) && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+const inAny = (p: Point2D, polys: readonly Poly[]): boolean => polys.some((poly) => inPoly(p, poly));
+
+/** True inside the painting, at least `margin` px from its border (the renderer fades the border). */
+const inCanvas = (p: Point2D, margin: number): boolean =>
+  p.x >= margin && p.y >= margin && p.x <= PAINTING_SIZE - margin && p.y <= PAINTING_SIZE - margin;
+
+/** Polygon scaled about a painting point (used for the moat around the cloister court). */
+const grow = (poly: Poly, cx: number, cy: number, k: number): Poly =>
+  poly.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k] as const);
+
+/**
+ * Classifies every cell from painting-space shapes, keeps the outer ring as
+ * masonry and walls off any walkable pocket that the spawn cannot reach.
+ */
+function paintedLayout(
+  style: ScenarioStyle, w: number, h: number,
+  classifyPx: (p: Point2D) => TileKind,
+  spawnPx: readonly [number, number], portalPx: readonly [number, number],
+): Layout {
+  const frame = PAINTED_FRAMES[style];
+  const cell = (px: readonly [number, number]): { x: number; y: number } => {
+    const g = paintingToGrid(frame, w, h, px[0], px[1]);
+    return { x: Math.floor(g.x) + 0.5, y: Math.floor(g.y) + 0.5 };
+  };
+  const tiles: TileKind[] = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const edge = x === 0 || y === 0 || x === w - 1 || y === h - 1;
+      const p = gridToPainting(frame, w, h, x + 0.5, y + 0.5);
+      const kind = edge ? 'wall' : classifyPx(p);
+      // Nothing walkable inside the feathered border of the painting.
+      tiles.push((kind === 'ground' || kind === 'path') && !inCanvas(p, 50) ? 'wall' : kind);
     }
   }
-  for (const [dx, dy] of [[-28, 0], [28, 0], [0, -28], [0, 28]] as const) {
-    pieces.push({ kind: 'doorway', x: Math.floor(cx + dx), y: Math.floor(cy + dy) });
+  const spawn = cell(spawnPx);
+  const portal = cell(portalPx);
+  const open = (i: number): boolean => tiles[i] === 'ground' || tiles[i] === 'path';
+  const seen = new Uint8Array(w * h);
+  const stack = [Math.floor(spawn.y) * w + Math.floor(spawn.x)];
+  seen[stack[0]!] = 1;
+  while (stack.length > 0) {
+    const i = stack.pop()!;
+    const x = i % w;
+    for (const n of [i - w, i + w, x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1]) {
+      if (n < 0 || n >= w * h || seen[n] || !open(n)) continue;
+      seen[n] = 1;
+      stack.push(n);
+    }
   }
-  return {
-    classify: (x, y) => {
-      const dx = x + 0.5 - cx;
-      const dy = y + 0.5 - cy;
-      const d = Math.max(Math.abs(dx), Math.abs(dy));
-      if (d <= 11) return 'ground';
-      if (d > 27) return 'wall';
-      if (d > 23) return 'path';
-      if (Math.abs(dx) <= 1.5 || Math.abs(dy) <= 1.5) return 'path'; // causeways over the moat
-      if (Math.abs(dx) > 13 && Math.abs(dy) > 13) {
-        const pond = Math.abs(Math.abs(dx) - 18.5) <= 2 && Math.abs(Math.abs(dy) - 18.5) <= 2;
-        return pond ? 'void' : 'ground';
-      }
-      return 'void';
-    },
-    spawn: { x: cx - 25.5, y: cy + 0.5 },
-    portal: { x: cx + 25.5, y: cy + 0.5 },
-    pieces,
-  };
+  for (let i = 0; i < tiles.length; i++) if (open(i) && !seen[i]) tiles[i] = 'wall';
+  return { classify: (x, y) => tiles[y * w + x]!, spawn, portal, pieces: [] };
 }
 
 /**
- * Puente Quebrado (violet, copper and lava): a long stone span between two
- * fortified landings with a wider mid plaza, plus two plank catwalks on either
- * side that join the span through short connectors.
+ * Claustro Mineral (jade and amber): an amber-cracked slab court in a jade
+ * moat, crossed by four carved stone bridges that end at the arched gallery.
+ * Spawn on the court by the north-west bridge; the exit waits on the far
+ * landing of the south-east bridge.
+ */
+function cloisterLayout(w: number, h: number): Layout {
+  const court: Poly = [[20, 718], [695, 250], [1375, 735], [695, 1190]];
+  const moat = grow(court, 697, 720, 1.3);
+  const bridges: Poly[] = [
+    [[222, 335], [312, 262], [516, 400], [416, 467]], // north-west
+    [[1085, 262], [1182, 340], [984, 477], [884, 393]], // north-east
+    [[165, 1045], [255, 1130], [470, 983], [375, 898]], // south-west
+    [[1232, 1050], [1132, 1132], [925, 983], [1030, 908]], // south-east
+  ];
+  const landings: Poly[] = [
+    [[187, 363], [347, 234], [290, 202], [130, 330]],
+    [[1050, 234], [1215, 365], [1270, 330], [1105, 200]],
+    [[130, 1015], [290, 1160], [235, 1195], [75, 1050]],
+    [[1265, 1020], [1100, 1160], [1155, 1195], [1320, 1055]],
+  ];
+  return paintedLayout('cloister', w, h, (p) => {
+    if (inPoly(p, court)) return 'ground';
+    if (inAny(p, bridges) || inAny(p, landings)) return 'path';
+    return inPoly(p, moat) && inCanvas(p, 30) ? 'void' : 'wall';
+  }, [480, 470], [1185, 1100]);
+}
+
+/**
+ * Puente Quebrado (violet, copper and lava): a square obsidian platform over
+ * the lava abyss, with a copper-and-turquoise rune octagon in the middle and
+ * three riveted plank decks hanging over its edges.
  */
 function bridgeLayout(w: number, h: number): Layout {
-  const cy = h / 2;
-  const x1 = w - 5; // east landing last tile
-  const rows = (y: number): number => y + 0.5 - cy; // signed distance from the span axis
-  const pieces: SetPiece[] = [
-    { kind: 'statue', x: 6, y: Math.floor(cy - 12) },
-    { kind: 'winch', x: x1 - 1, y: Math.floor(cy - 12) },
-    { kind: 'winch', x: 6, y: Math.floor(cy + 11), flip: true },
-    { kind: 'statue', x: x1 - 1, y: Math.floor(cy + 11), flip: true },
-    { kind: 'tower', x: 3, y: Math.floor(cy) },
-    { kind: 'tower', x: w - 4, y: Math.floor(cy) },
-    { kind: 'banner', x: 13, y: Math.floor(cy - 13) },
-    { kind: 'banner', x: x1 - 9, y: Math.floor(cy - 13) },
+  const platform: Poly = [[35, 605], [700, 228], [1365, 605], [700, 1003]];
+  const octagonOuter: Poly = [[600, 443], [800, 443], [997, 553], [997, 703], [800, 810], [600, 810], [403, 703], [403, 553]];
+  const octagonInner: Poly = [[630, 505], [770, 505], [925, 590], [925, 665], [770, 750], [630, 750], [475, 665], [475, 590]];
+  const decks: Poly[] = [
+    [[192, 432], [305, 495], [520, 360], [405, 295]], // north-west
+    [[192, 845], [345, 761], [555, 888], [395, 972]], // south-west
+    [[1112, 735], [1245, 808], [1005, 952], [865, 880]], // south-east
   ];
-  for (const [px, py] of [[14, -5.5], [14, 5.5], [w - 15, -5.5], [w - 15, 5.5], [34, -9.5], [45, -9.5], [34, 9.5], [45, 9.5]] as const) {
-    pieces.push({ kind: 'brazier', x: px, y: Math.floor(cy + py) });
-  }
-  for (const px of [4, 13, w - 14, x1]) pieces.push({ kind: 'brazier', x: px, y: Math.floor(cy + 13) });
-  return {
-    classify: (x, y) => {
-      const dy = rows(y);
-      const catwalk = Math.abs(dy) >= 12.5 && Math.abs(dy) <= 13.5 && within(x, 14, w - 15);
-      const connector = Math.abs(dy) > 5.5 && Math.abs(dy) < 12.5 && (within(x, 26, 27) || within(x, w - 28, w - 27));
-      if (catwalk || connector) return 'path';
-      const landing = (within(x, 4, 13) || within(x, w - 14, x1)) && Math.abs(dy) <= 13.5;
-      const span = within(x, 14, w - 15) && Math.abs(dy) <= 5.5;
-      const plaza = within(x, 34, 45) && Math.abs(dy) <= 9.5;
-      if (landing || span || plaza) return 'ground';
-      if (y < cy - 14 || y >= h - 6 || x <= 3 || x >= w - 4) return 'wall';
-      return 'void';
-    },
-    spawn: { x: 6.5, y: Math.floor(cy) + 0.5 },
-    portal: { x: x1 - 1.5, y: Math.floor(cy) + 0.5 },
-    pieces,
-  };
+  return paintedLayout('bridge', w, h, (p) => {
+    if (inAny(p, decks)) return 'path';
+    if (inPoly(p, octagonOuter) && !inPoly(p, octagonInner)) return 'path';
+    if (inPoly(p, platform)) return 'ground';
+    return inCanvas(p, 20) ? 'void' : 'wall';
+  }, [250, 610], [1190, 610]);
 }
 
 /**
- * Fortaleza Falla 23 (steel blue and coral): a processional road runs from the
- * south forecourt through the great plaza to the numbered gate. A cross road
- * links the west barracks yard and the east bone yard through partition gaps,
- * and lava lakes fill the northern pockets.
+ * Fortaleza Falla 23 (steel blue and coral): an open crossroad courtyard of
+ * steel-framed slabs with fossil skeletons in the sandstone roads, closed at
+ * the back by battlements with lava grates along their base. The exit is the
+ * arched gate at the north-east corner.
  */
-function fortressLayout(w: number, _h: number): Layout {
-  const cx = Math.floor(w / 2);
-  const gateY = 5;
-  const pieces: SetPiece[] = [
-    { kind: 'gate', x: cx, y: gateY },
-    { kind: 'banner', x: cx - 4, y: gateY },
-    { kind: 'banner', x: cx + 3, y: gateY },
-    { kind: 'skull', x: cx + 20, y: 28 },
-    { kind: 'rib', x: cx - 21, y: 28 },
-    { kind: 'stall', x: cx - 24, y: 25 },
-    { kind: 'stairs', x: cx - 13, y: 24 },
-    { kind: 'stairs', x: cx + 12, y: 39, flip: true },
+function fortressLayout(w: number, h: number): Layout {
+  const frame = PAINTED_FRAMES.fortress;
+  const battlements: Poly = [[0, 0], [1400, 0], [1400, 470], [1260, 410], [1010, 265], [700, 95], [150, 398], [0, 430]];
+  const lava: Poly[] = [
+    [[0, 430], [150, 398], [245, 462], [0, 605]], // west pool
+    [[150, 398], [700, 95], [730, 198], [245, 462]], // west grates
+    [[700, 95], [1010, 265], [1050, 355], [700, 212]], // east pool and grates
+    [[1195, 455], [1290, 420], [1400, 470], [1400, 575], [1330, 565]], // gate pool
   ];
-  for (const [px, py] of [[cx - 3, 9], [cx + 2, 9], [cx - 3, 14], [cx + 2, 14], [cx - 3, 20], [cx + 2, 20], [cx - 3, 43], [cx + 2, 43], [cx - 8, 52], [cx + 7, 52], [cx - 8, 58], [cx + 7, 58]] as const) {
-    pieces.push({ kind: 'brazier', x: px, y: py });
-  }
-  return {
-    classify: (x, y) => {
-      const road = within(x, cx - 2, cx + 1) && within(y, 6, 57);
-      const crossRoad = within(y, 30, 33) && within(x, 8, w - 9);
-      if (road || crossRoad) return 'path';
-      const plaza = within(x, 20, w - 21) && within(y, 18, 45);
-      const westYard = within(x, 6, 17) && within(y, 24, 40);
-      const eastYard = within(x, w - 18, w - 7) && within(y, 24, 40);
-      const forecourt = within(x, cx - 8, cx + 7) && within(y, 52, 58);
-      if (plaza || westYard || eastYard || forecourt) return 'ground';
-      const lavaWest = within(x, 8, cx - 4) && within(y, 6, 17);
-      const lavaEast = within(x, cx + 3, w - 9) && within(y, 6, 17);
-      if (lavaWest || lavaEast) return 'void';
-      return 'wall';
-    },
-    spawn: { x: cx + 0.5, y: 56.5 },
-    portal: { x: cx + 0.5, y: 7.5 },
-    pieces,
-  };
+  const rubble: Poly[] = [
+    [[0, 1190], [260, 1400], [0, 1400]], // floor front edge
+    [[1350, 1140], [1400, 1140], [1400, 1400], [1350, 1400]], // corner tower
+  ];
+  // The two sandstone roads cross at the anchor and run along the grid axes.
+  const centre = { x: w / 2, y: h / 2 };
+  return paintedLayout('fortress', w, h, (p) => {
+    if (!inCanvas(p, 60) || inPoly(p, battlements) || inAny(p, rubble)) return 'wall';
+    if (inAny(p, lava)) return 'void';
+    const g = paintingToGrid(frame, w, h, p.x, p.y);
+    return Math.abs(g.x - centre.x) <= 2.5 || Math.abs(g.y - centre.y) <= 2.5 ? 'path' : 'ground';
+  }, [230, 1040], [1150, 385]);
 }
 
+/**
+ * Osario (bone and petrol): a circular bone-mosaic pit ringed by teal rim
+ * stones. The floor ellipse in the painting is a circle on the grid; the
+ * glowing cyan-amber ring is the route.
+ */
 function ossuaryLayout(w: number, h: number): Layout {
-  const cx = Math.floor(w / 2);
-  const cy = Math.floor(h / 2);
-  return {
-    classify: (x, y) => {
-      const inside = (px: number, py: number): boolean => {
-        const dx = Math.abs(px - cx);
-        const dy = Math.abs(py - cy);
-        return dx <= cx - 3 && dy <= cy - 3 && dx + dy <= cx + cy - 11;
-      };
-      const edge = inside(x + 1, y) || inside(x - 1, y) || inside(x, y + 1) || inside(x, y - 1);
-      if (inside(x, y)) {
-        const onRing = Math.abs(x - cx) === cx - 3 || Math.abs(y - cy) === cy - 3 || Math.abs(x - cx) + Math.abs(y - cy) === cx + cy - 11;
-        return onRing ? 'path' : 'ground';
-      }
-      return edge ? 'wall' : 'void';
-    },
-    spawn: { x: 5.5, y: cy + 0.5 },
-    portal: { x: w - 5.5, y: cy + 0.5 },
-    pieces: [],
-  };
+  const ellipse = (p: Point2D, ax: number, ay: number): number => Math.hypot((p.x - 700) / ax, (p.y - 700) / ay);
+  return paintedLayout('ossuary', w, h, (p) => {
+    const floor = ellipse(p, 607, 550);
+    if (floor <= 1) return Math.abs(ellipse(p, 345, 320) - 1) <= 0.1 ? 'path' : 'ground';
+    return floor <= 1.12 ? 'wall' : 'void';
+  }, [260, 700], [1140, 700]);
 }
 
 function layoutFor(paletteId: string, width: number, height: number): Layout | undefined {
