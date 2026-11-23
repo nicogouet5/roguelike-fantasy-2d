@@ -905,18 +905,6 @@ body,
   margin-bottom: 10px;
 }
 
-.synergy-ribbon {
-  display: inline-block;
-  align-self: flex-start;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  color: #111827;
-  background: var(--gold-bright);
-  padding: 2px 7px;
-  margin-bottom: 6px;
-}
-
 .offer-tags {
   display: flex;
   flex-wrap: wrap;

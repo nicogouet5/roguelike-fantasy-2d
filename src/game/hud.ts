@@ -720,7 +720,6 @@ export class GameHud {
         const boon = this.data.boonsById[bid]!;
         const info = this.data.names.boons[bid]!;
         const rank = (state.boonRanks[bid] ?? 0) + 1;
-        const isSynergy = offer.synergyIds.includes(bid);
         const tagsHtml = boon.tags
           .map((t) => {
             const [t2, t4] = TAG_SET_TIERS[t];
@@ -735,7 +734,6 @@ export class GameHud {
               <span class="offer-key">[${idx + 1}] ${rarityLabels[boon.rarity]}</span>
               <span class="offer-cat">${catLabels[boon.category]} · ${rank}/${boon.maxRank}</span>
             </div>
-            ${isSynergy ? '<div class="synergy-ribbon">★ SINERGIA CON TU BUILD</div>' : ''}
             <h3>${info.name}</h3>
             <p>${info.desc}</p>
             <div class="offer-tags">${tagsHtml}</div>
