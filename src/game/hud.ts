@@ -452,10 +452,17 @@ export class GameHud {
   }
 
   private renderEscModal(): void {
+    const autoAtk = this.lastState?.player.autoAttack ?? true;
+    const autoCast = this.lastState?.player.autoCast ?? false;
     this.escModal.innerHTML = `
       <div class="modal-card compact">
         <h2>Pausa</h2>
-        <p class="muted">WASD/Flechas mover · 1/2 habilidades · Espacio Dash · 3/E Ultimate · Q poción · C build · R Auto-Cast</p>
+        <p class="muted">WASD/Flechas mover · 1/2 habilidades · Espacio Dash · 3/E Ultimate · Q poción · C build · R Auto-Cast · M Audio</p>
+        <div class="toggle-pills" style="justify-content:center;margin:10px 0 14px">
+          <button class="pill ${autoAtk ? 'on' : ''}" id="esc-auto-atk">Auto-Atk: ${autoAtk ? 'ON' : 'OFF'}</button>
+          <button class="pill ${autoCast ? 'on' : ''}" id="esc-auto-cast">Auto-Cast [R]: ${autoCast ? 'ON' : 'OFF'}</button>
+          <button class="pill ${!this.muted ? 'on' : ''}" id="esc-audio">${this.muted ? 'Audio: OFF' : 'Audio [M]: ON'}</button>
+        </div>
         <div class="modal-actions-col">
           <button class="primary-btn" id="esc-resume">Continuar Cacería</button>
           <button class="secondary-btn" id="esc-restart">Reiniciar con este Dinosaurio</button>
@@ -463,6 +470,18 @@ export class GameHud {
         </div>
       </div>
     `;
+    this.escModal.querySelector('#esc-auto-atk')!.addEventListener('click', () => {
+      this.cb.onToggleAutoAttack();
+      this.renderEscModal();
+    });
+    this.escModal.querySelector('#esc-auto-cast')!.addEventListener('click', () => {
+      this.cb.onToggleAutoCast();
+      this.renderEscModal();
+    });
+    this.escModal.querySelector('#esc-audio')!.addEventListener('click', () => {
+      this.cb.onToggleMute();
+      this.renderEscModal();
+    });
     this.escModal.querySelector('#esc-resume')!.addEventListener('click', () => this.toggleEscMenu());
     this.escModal.querySelector('#esc-restart')!.addEventListener('click', () => {
       if (this.lastState) {
@@ -513,7 +532,16 @@ export class GameHud {
           `<span class="buff-chip ${b.id.startsWith('codex_') ? 'codex' : b.id.startsWith('food_') ? 'food' : ''}">${buffLabels[b.id]} ${(b.remainingMs / 1000).toFixed(0)}s</span>`
       )
       .join('');
-    const codexCd = Math.max(0, Math.ceil(state.pet.supportCooldownMs / 1000));
+
+    const canBuyPot = player.amber >= AMBER_POTION_COST;
+    const canBuyOffer = player.amber >= AMBER_OFFER_COST;
+    const amberShopHtml =
+      canBuyPot || canBuyOffer
+        ? `<div class="amber-shop-row">
+            ${canBuyPot ? `<button class="pill amber-btn ready" id="pill-buy-pot" title="Gasta Ámbar para comprar una Poción">+Poción (${AMBER_POTION_COST} ◆)</button>` : ''}
+            ${canBuyOffer ? `<button class="pill amber-btn ready" id="pill-buy-offer" title="Gasta Ámbar para abrir una oferta de 3 mejoras extra">✨ Forjar (${AMBER_OFFER_COST} ◆)</button>` : ''}
+          </div>`
+        : '';
 
     this.statusCard.innerHTML = `
       <div class="hero-row">
@@ -525,35 +553,18 @@ export class GameHud {
             <strong>${clsName}</strong>
             <span>Nv ${player.level}</span>
             <span class="amber-tag">◆ ${player.amber}</span>
+            <button class="hud-mini-link" id="pill-stats" title="Ver build, stats y sinergias [C]">Build [C]</button>
           </div>
           <div class="bar-row hp"><div class="bar-fill" style="width:${hpPct}%"></div><span>HP ${Math.ceil(player.hp)} / ${derived.maxHp}</span></div>
           <div class="bar-row sp"><div class="bar-fill" style="width:${spPct}%"></div><span>SP ${Math.floor(player.sp)} / ${derived.maxSp}</span></div>
         </div>
       </div>
-      <div class="pet-buff-row">
-        <span class="pet-badge" title="Pet Codex flotante: te cura o te otorga buffs temporales automáticamente">
-          <img class="pixel-sprite pet-icon" src="${getDinoPreviewDataUrl('pet_codex')}" alt="Codex" />
-          Codex ${codexCd}s
-        </span>
-        ${activeBuffsHtml}
-      </div>
-      <div class="toggle-pills">
-        <button class="pill ${player.autoAttack ? 'on' : ''}" id="pill-auto-atk">Auto-Atk</button>
-        <button class="pill ${player.autoCast ? 'on' : ''}" id="pill-auto-cast">Auto-Cast [R]</button>
-        <button class="pill" id="pill-stats">Build [C]</button>
-        <button class="pill ${!this.muted ? 'on' : ''}" id="pill-audio">${this.muted ? 'Sin Audio' : 'Audio [M]'}</button>
-      </div>
-      <div class="amber-shop-row">
-        <button class="pill amber-btn ${player.amber >= AMBER_POTION_COST ? 'ready' : ''}" id="pill-buy-pot" ${player.amber < AMBER_POTION_COST ? 'disabled' : ''} title="Gasta Ámbar para comprar una Poción">+Poción (${AMBER_POTION_COST} ◆)</button>
-        <button class="pill amber-btn ${player.amber >= AMBER_OFFER_COST ? 'ready' : ''}" id="pill-buy-offer" ${player.amber < AMBER_OFFER_COST ? 'disabled' : ''} title="Gasta Ámbar para abrir una oferta de 3 mejoras extra">✨ Forjar Mejora (${AMBER_OFFER_COST} ◆)</button>
-      </div>
+      ${activeBuffsHtml ? `<div class="pet-buff-row">${activeBuffsHtml}</div>` : ''}
+      ${amberShopHtml}
     `;
-    this.statusCard.querySelector('#pill-auto-atk')!.addEventListener('click', () => this.cb.onToggleAutoAttack());
-    this.statusCard.querySelector('#pill-auto-cast')!.addEventListener('click', () => this.cb.onToggleAutoCast());
-    this.statusCard.querySelector('#pill-stats')!.addEventListener('click', () => this.toggleStatsDrawer());
-    this.statusCard.querySelector('#pill-audio')!.addEventListener('click', () => this.cb.onToggleMute());
-    this.statusCard.querySelector('#pill-buy-pot')!.addEventListener('click', () => this.cb.onBuyAmberPotion());
-    this.statusCard.querySelector('#pill-buy-offer')!.addEventListener('click', () => this.cb.onBuyAmberOffer());
+    this.statusCard.querySelector('#pill-stats')?.addEventListener('click', () => this.toggleStatsDrawer());
+    this.statusCard.querySelector('#pill-buy-pot')?.addEventListener('click', () => this.cb.onBuyAmberPotion());
+    this.statusCard.querySelector('#pill-buy-offer')?.addEventListener('click', () => this.cb.onBuyAmberOffer());
 
     // Boss HP Bar
     const boss = state.mobs.find((m) => m.isBoss && m.hp > 0);
