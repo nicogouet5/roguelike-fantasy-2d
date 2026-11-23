@@ -69,7 +69,7 @@ export class GameHud {
   ) {
     this.selectedClassId = data.classes[0]!.id;
     this.buildDom();
-    this.showTitle();
+    this.showLoading();
   }
 
   private buildDom(): void {
@@ -79,7 +79,6 @@ export class GameHud {
     this.titleEl = document.createElement('div');
     this.titleEl.id = 'title-overlay';
     this.root.appendChild(this.titleEl);
-    this.renderTitle();
 
     // 2. Active HUD layer
     this.hudLayer = document.createElement('div');
@@ -359,6 +358,23 @@ export class GameHud {
     this.titleEl.querySelector('#start-run-btn')!.addEventListener('click', () => {
       this.cb.onStartRun(this.selectedClassId, this.seed, this.autoCastStart);
     });
+  }
+
+  showLoading(): void {
+    this.stopPreviewAnim();
+    this.hudLayer.style.display = 'none';
+    this.titleEl.style.display = 'flex';
+    this.titleEl.innerHTML = `
+      <div class="title-panel" style="max-width:520px;text-align:center;padding:34px 28px">
+        <div class="title-badge">PIXEL ART · 2D ISOMÉTRICO</div>
+        <div class="fantasy-heading">
+          <span class="orn-divider left"></span>
+          <h1>${this.data.names.ui.title}</h1>
+          <span class="orn-divider right"></span>
+        </div>
+        <p class="title-sub" style="margin-top:14px">Cargando sprites y escenarios...</p>
+      </div>
+    `;
   }
 
   showTitle(): void {

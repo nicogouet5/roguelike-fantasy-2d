@@ -60,6 +60,7 @@ export class GameScene extends Phaser.Scene {
   private gameData!: GameData;
   private state: GameState | null = null;
   private hud: GameHud | null = null;
+  private assetsReady = false;
 
   private tileGroup: Phaser.GameObjects.Image[] = [];
   private propSprites: Phaser.GameObjects.Sprite[] = [];
@@ -97,6 +98,9 @@ export class GameScene extends Phaser.Scene {
 
   attachHud(hud: GameHud): void {
     this.hud = hud;
+    if (this.assetsReady && !this.state) {
+      this.hud.showTitle();
+    }
   }
 
   preload(): void {
@@ -116,6 +120,10 @@ export class GameScene extends Phaser.Scene {
     clearDinoPreviewCache();
     buildPixelAtlas(this);
     buildArenaArchitecture(this);
+    this.assetsReady = true;
+    if (!this.state) {
+      this.hud?.showTitle();
+    }
 
     this.particles = new ParticlePool(this, 100);
     this.damageText = new DamageTextPool(this, 48);
