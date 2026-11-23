@@ -335,7 +335,7 @@ export function handleMobDeath(state: GameState, data: GameData, mob: MobEntity)
       text: '¡Spinosaurus Derrotado!',
       color: '#fde047',
     });
-    state.events.push({ type: 'sfx', sfx: 'levelup' });
+    state.events.push({ type: 'sfx', sfx: 'victory' });
   } else if (!state.portalUnlocked && state.zoneKills >= mapDef.targetKills) {
     state.portalUnlocked = true;
     state.events.push({
@@ -396,6 +396,7 @@ export function damagePlayer(
   if (player.hp <= 0) {
     state.status = 'defeat';
     state.paused = true;
+    state.events.push({ type: 'sfx', sfx: 'death' });
   }
   return dealt;
 }
@@ -600,6 +601,7 @@ function castPlayerSkill(
       player.x = dest.x;
       player.y = dest.y;
       player.leapAnimMs = 300;
+      state.events.push({ type: 'sfx', sfx: 'dash' });
       state.events.push({
         type: 'dash_trail',
         fromX: startX,
@@ -643,6 +645,7 @@ function castPlayerSkill(
       player.x = dest.x;
       player.y = dest.y;
       player.invulnMs = Math.max(player.invulnMs, 260);
+      state.events.push({ type: 'sfx', sfx: 'dash' });
       state.events.push({
         type: 'dash_trail',
         fromX: startX,
@@ -835,6 +838,7 @@ function castPlayerSkill(
       player.x = dest.x;
       player.y = dest.y;
       player.invulnMs = Math.max(player.invulnMs, 300);
+      state.events.push({ type: 'sfx', sfx: 'dash' });
       state.events.push({
         type: 'dash_trail',
         fromX: startX,

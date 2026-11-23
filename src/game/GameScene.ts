@@ -415,9 +415,14 @@ export class GameScene extends Phaser.Scene {
           const p = gridToScreen(ev.x, ev.y);
           this.damageText.spawnDamage(p.x, p.y, ev.amount, ev.element, ev.isCrit, ev.isWeakness, ev.fromPlayer);
           this.particles.burst(p.x, p.y - 12, ev.element, ev.isCrit ? 10 : 5, ev.isCrit ? 130 : 85);
-          if (ev.isCrit) {
-            this.hitstopMs = 28;
-            this.cameras.main.shake(90, 0.004);
+          if (ev.fromPlayer) {
+            if (ev.isCrit) {
+              audioManager.play('crit');
+              this.hitstopMs = 28;
+              this.cameras.main.shake(90, 0.004);
+            } else {
+              audioManager.play('hit');
+            }
           }
           break;
         }

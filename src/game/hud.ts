@@ -1,4 +1,5 @@
 import { getDinoPreviewDataUrl, getDinoPreviewFrames } from '../assets/pixelArt.ts';
+import { audioManager } from '../audio/synth.ts';
 import { AMBER_OFFER_COST, AMBER_POTION_COST, AMBER_REROLL_COST, getBuildTagCounts } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
 import { computeDerivedStats, getBasicAttackRange, TAG_SET_TIERS } from '../core/stats.ts';
@@ -276,6 +277,8 @@ export class GameHud {
 
     this.titleEl.querySelectorAll<HTMLButtonElement>('.dino-card').forEach((btn) => {
       btn.addEventListener('click', () => {
+        audioManager.unlock();
+        audioManager.play('ui_click');
         this.selectedClassId = btn.dataset.class!;
         this.renderTitle();
       });
@@ -721,9 +724,15 @@ export class GameHud {
     `;
 
     this.offerModal.querySelectorAll<HTMLButtonElement>('[data-boon]').forEach((btn) => {
-      btn.addEventListener('click', () => this.cb.onPickBoon(btn.dataset.boon!));
+      btn.addEventListener('click', () => {
+        audioManager.play('ui_click');
+        this.cb.onPickBoon(btn.dataset.boon!);
+      });
     });
-    this.offerModal.querySelector('#btn-reroll')!.addEventListener('click', () => this.cb.onRerollOffer());
+    this.offerModal.querySelector('#btn-reroll')!.addEventListener('click', () => {
+      audioManager.play('ui_click');
+      this.cb.onRerollOffer();
+    });
     this.offerModal.querySelector('#btn-skip')!.addEventListener('click', () => this.cb.onSkipOffer());
   }
 

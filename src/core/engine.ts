@@ -190,7 +190,7 @@ export function usePotion(state: GameState, data: GameData): boolean {
   player.hp = Math.min(derived.maxHp, player.hp + hpHeal);
   player.sp = Math.min(derived.maxSp, player.sp + spHeal);
   state.events.push({ type: 'heal', targetId: 'player', x: player.x, y: player.y, amount: hpHeal });
-  state.events.push({ type: 'sfx', sfx: 'buff' });
+  state.events.push({ type: 'sfx', sfx: 'potion' });
   return true;
 }
 
@@ -205,7 +205,7 @@ export function buyAmberPotion(state: GameState): boolean {
     text: '+1 Poción de Ámbar',
     color: '#4ade80',
   });
-  state.events.push({ type: 'sfx', sfx: 'buff' });
+  state.events.push({ type: 'sfx', sfx: 'pickup' });
   return true;
 }
 
@@ -460,10 +460,13 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
     if (drop.kind === 'potion') {
       player.potions += drop.amount;
       state.events.push({ type: 'notice', x: player.x, y: player.y, text: '+1 Poción de Ámbar', color: '#4ade80' });
+      state.events.push({ type: 'sfx', sfx: 'pickup' });
     } else if (drop.kind === 'amber') {
       player.amber += drop.amount;
+      state.events.push({ type: 'sfx', sfx: 'pickup' });
     } else if (drop.kind === 'chest') {
       state.stats.chestsOpened += 1;
+      state.events.push({ type: 'sfx', sfx: 'chest' });
       enqueueOffer(state, data, 'chest');
     }
   }
