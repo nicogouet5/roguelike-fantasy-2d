@@ -89,16 +89,22 @@ const SFX_BANK: Record<SfxKind, SfxBankEntry> = {
     minIntervalMs: 100,
   },
   hit: {
-    files: ['longsword_hit_flesh_01.wav', 'longsword_hit_flesh_02.wav', 'plague_hound_bite_01.wav'],
-    volume: 0.28,
-    pitchJitter: 0.09,
-    minIntervalMs: 65,
+    files: [
+      'longsword_hit_flesh_01.wav',
+      'longsword_hit_flesh_02.wav',
+      'longsword_hit_flesh_03.wav',
+      'longsword_hit_armor_01.wav',
+      'longbow_arrow_impact_01.wav',
+    ],
+    volume: 0.56,
+    pitchJitter: 0.1,
+    minIntervalMs: 24,
   },
   crit: {
     files: ['critical_blow_bone_crack_01.wav', 'critical_blow_blood_splatter_01.wav'],
-    volume: 0.44,
-    pitchJitter: 0.06,
-    minIntervalMs: 80,
+    volume: 0.64,
+    pitchJitter: 0.07,
+    minIntervalMs: 35,
   },
   hurt: {
     files: ['ashen_knight_hurt_01.wav', 'ashen_knight_hurt_02.wav'],
@@ -213,6 +219,55 @@ class DinoAudioManager {
     this.musicMode = mode;
     this.musicStep = 0;
     if (!this.muted && this.ctx?.state === 'running') this.playModeSting(mode);
+  }
+
+  /** Punchy layered impact SFX triggered on every player hit (melee, ranged, crit, weakness). */
+  playHitImpact(isCrit: boolean, isWeakness: boolean, isRanged = false): void {
+    const graph = this.getGraph();
+    if (!graph) return;
+
+    const kind: SfxKind = isCrit ? 'crit' : 'hit';
+    const nowMs = performance.now();
+    const prevMs = this.lastPlayedMs.get(kind) ?? 0;
+    const minInterval = isCrit ? 35 : 24;
+    if (nowMs - prevMs < minInterval) return;
+    this.lastPlayedMs.set(kind, nowMs);
+
+    const entry = SFX_BANK[kind];
+    let file: string;
+    if (!isCrit && isRanged) {
+      file = 'longbow_arrow_impact_01.wav';
+    } else {
+      const pool = isCrit ? entry.files : entry.files.slice(0, 4);
+      const idx = this.variantCounter.get(kind) ?? 0;
+      this.variantCounter.set(kind, idx + 1);
+      file = pool[idx % pool.length]!;
+    }
+
+    const buffer = this.buffers.get(file);
+    if (buffer) {
+      const src = graph.ctx.createBufferSource();
+      src.buffer = buffer;
+      const jitter = entry.pitchJitter ?? 0.08;
+      src.playbackRate.value = (isWeakness ? 1.08 : 1.0) + (Math.random() * 2 - 1) * jitter;
+      const gain = graph.ctx.createGain();
+      gain.gain.value = entry.volume;
+      src.connect(gain);
+      gain.connect(graph.sfxBus);
+      src.start(0);
+    }
+
+    // Tactile sub-thump + crisp impact snap so every single hit cuts through the mix
+    if (isCrit) {
+      this.thump(130, 0.14, 0.16);
+      this.noise(0.055, 0.11, 'bandpass', 1800);
+    } else {
+      this.thump(isRanged ? 190 : 155, 0.08, 0.1);
+      this.noise(0.032, 0.065, 'bandpass', isRanged ? 2200 : 1450);
+    }
+    if (isWeakness) {
+      this.sweep(620, 980, 0.08, 'triangle', 0.065);
+    }
   }
 
   /** Renderer-level impact layer for impacts without a dedicated logic SFX event. */
