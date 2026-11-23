@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ANIM_COUNTS, ATLAS_KEY, buildPixelAtlas, clearDinoPreviewCache, getDinoFrameName, type AnimPose } from '../assets/pixelArt.ts';
 import { codexBodyMotion } from '../assets/actorMotion.ts';
 import { preloadCodexArt, registerCodexArt } from '../assets/codexArt.ts';
+import { preloadFoodArt, registerFoodArt } from '../assets/foodArt.ts';
 import { preloadPlayableSheets, registerPlayableSheets } from '../assets/playableSheets.ts';
 import { preloadMobSheets, registerMobSheets } from '../assets/mobSheets.ts';
 import { buildArenaArchitecture } from './arenaArchitecture.ts';
@@ -100,6 +101,7 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     preloadCodexArt(this);
+    preloadFoodArt(this);
     preloadPlayableSheets(this);
     preloadMobSheets(this);
     preloadScenarioTextures(this);
@@ -108,6 +110,7 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.gameData = loadGameData();
     registerCodexArt(this);
+    registerFoodArt(this);
     registerPlayableSheets(this);
     registerMobSheets(this);
     clearDinoPreviewCache();
@@ -808,7 +811,7 @@ export class GameScene extends Phaser.Scene {
             ? (this.gameData.foodsById[d.foodId]?.spriteFrame ?? 'fx_potion')
             : `fx_${d.kind}`;
         sp = this.add.sprite(0, 0, ATLAS_KEY, frame);
-        sp.setScale(d.kind === 'chest' ? 1.45 : d.kind === 'food' ? 1.3 : 1.05);
+        sp.setScale(d.kind === 'chest' ? 1.45 : d.kind === 'food' ? 0.95 : 1.05);
         this.dropSprites.set(d.id, sp);
       }
       const pos = gridToScreen(d.x, d.y);
