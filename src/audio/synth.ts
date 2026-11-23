@@ -56,6 +56,7 @@ type ScoreBar = {
 };
 
 const MUSIC_TICK_MS = 300;
+const MUSIC_VOLUME = 0.26;
 const hzFromMidi = (midi: number): number => 440 * 2 ** ((midi - 69) / 12);
 
 interface SfxBankEntry {
@@ -217,6 +218,7 @@ class DinoAudioManager {
   private variantCounter = new Map<SfxKind, number>();
 
   private musicTimer: number | null = null;
+  private cutscenePlaying = false;
   private musicStep = 0;
   private musicMode: MusicMode = 'ambient';
   private bossPhase: 1 | 2 = 1;
@@ -233,7 +235,7 @@ class DinoAudioManager {
       this.loadingStarted = true;
       void this.preloadAll(this.ctx);
     }
-    if (this.musicTimer === null && !this.muted) this.startMusic();
+    this.startMusic();
   }
 
   private async preloadAll(ctx: AudioContext): Promise<void> {
@@ -286,7 +288,22 @@ class DinoAudioManager {
     this.musicMode = mode;
     this.bossPhase = 1;
     this.musicStep = 0;
-    if (!this.muted && this.ctx?.state === 'running') this.playModeSting(mode);
+    if (!this.cutscenePlaying && !this.muted && this.ctx?.state === 'running') this.playModeSting(mode);
+  }
+
+  setCutscenePlaying(active: boolean): void {
+    if (this.cutscenePlaying === active) return;
+    this.cutscenePlaying = active;
+
+    if (this.musicBus && this.ctx) {
+      const now = this.ctx.currentTime;
+      this.musicBus.gain.cancelScheduledValues(now);
+      if (active) this.musicBus.gain.setValueAtTime(0, now);
+      else this.musicBus.gain.setTargetAtTime(MUSIC_VOLUME, now, 0.035);
+    }
+
+    if (active) this.stopMusic();
+    else this.startMusic();
   }
 
   /** Punchy layered impact SFX triggered on every player hit (melee, ranged, crit, weakness). */
@@ -456,7 +473,7 @@ class DinoAudioManager {
     this.musicBus = this.ctx.createGain();
     // The score can carry several synthesized voices at once; leave ample
     // headroom for combat SFX before the final master compressor.
-    this.musicBus.gain.value = 0.26;
+    this.musicBus.gain.value = this.cutscenePlaying ? 0 : MUSIC_VOLUME;
     this.sfxBus = this.ctx.createGain();
     this.sfxBus.gain.value = 0.9;
     this.musicBus.connect(this.master);
@@ -542,7 +559,7 @@ class DinoAudioManager {
   }
 
   private startMusic(): void {
-    if (typeof window === 'undefined' || this.musicTimer !== null) return;
+    if (typeof window === 'undefined' || !this.ctx || this.muted || this.cutscenePlaying || this.musicTimer !== null) return;
     this.musicTimer = window.setInterval(() => this.tickMusic(), MUSIC_TICK_MS);
     this.tickMusic();
   }

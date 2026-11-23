@@ -1,6 +1,5 @@
 import type { GameData } from './data.ts';
 import { isWalkable } from './mapGen.ts';
-import { createRng } from './rng.ts';
 import { cast } from './skills.ts';
 import type { GameState, MobEntity } from './types.ts';
 
@@ -28,8 +27,27 @@ function moveMobTowards(state: GameState, mob: MobEntity, dirX: number, dirY: nu
     mob.vx = 0;
     mob.vy = ny * speed;
   } else {
-    mob.vx = 0;
-    mob.vy = 0;
+    // Slide around obstacles/pillars so chasing mobs never stall on corners
+    const px = -ny;
+    const py = nx;
+    const alt1X = mob.x + px * speed * dtSec;
+    const alt1Y = mob.y + py * speed * dtSec;
+    const alt2X = mob.x - px * speed * dtSec;
+    const alt2Y = mob.y - py * speed * dtSec;
+    if (isWalkable(state.zone, alt1X, alt1Y)) {
+      mob.x = alt1X;
+      mob.y = alt1Y;
+      mob.vx = px * speed;
+      mob.vy = py * speed;
+    } else if (isWalkable(state.zone, alt2X, alt2Y)) {
+      mob.x = alt2X;
+      mob.y = alt2Y;
+      mob.vx = -px * speed;
+      mob.vy = -py * speed;
+    } else {
+      mob.vx = 0;
+      mob.vy = 0;
+    }
   }
 }
 
@@ -75,7 +93,6 @@ export function spawnMob(
 
 export function stepMobsAi(state: GameState, data: GameData, dtMs: number): void {
   const dtSec = dtMs / 1000;
-  const rng = createRng(state.rngCombatState);
 
   for (const mob of [...state.mobs]) {
     if (mob.hp <= 0) continue;
@@ -150,17 +167,29 @@ export function stepMobsAi(state: GameState, data: GameData, dtMs: number): void
     const dy = state.player.y - mob.y;
     const dist = Math.hypot(dx, dy);
 
-    if (dist > def.aggroRange && !mob.isBoss) {
-      // Gentle wander
-      mob.wanderTimerMs -= dtMs;
-      if (mob.wanderTimerMs <= 0) {
-        mob.wanderTimerMs = rng.int(1200, 2600);
-        const a = rng.float(0, Math.PI * 2);
-        mob.wanderDirX = Math.cos(a);
-        mob.wanderDirY = Math.sin(a);
+    // Global aggro + anti-stuck off-screen flank: if a non-boss mob gets stuck far behind walls,
+    // reposition it to a walkable flanking spot around the player so you never hunt stragglers.
+    if (!mob.isBoss) {
+      const blockedFar = dist > 20 || (dist > def.attackRange + 1.5 && Math.hypot(mob.vx, mob.vy) < 0.05);
+      if (blockedFar) {
+        mob.wanderTimerMs += dtMs;
+        if (mob.wanderTimerMs >= 2600) {
+          mob.wanderTimerMs = 0;
+          const baseAngle = ((Number(mob.id.replace(/\D/g, '')) || 1) * 1.618 + state.stats.elapsedMs * 0.001) % (Math.PI * 2);
+          for (let step = 0; step < 12; step++) {
+            const a = baseAngle + (step * Math.PI) / 6;
+            const fx = state.player.x + Math.cos(a) * 10.5;
+            const fy = state.player.y + Math.sin(a) * 10.5;
+            if (isWalkable(state.zone, fx, fy)) {
+              mob.x = fx;
+              mob.y = fy;
+              break;
+            }
+          }
+        }
+      } else {
+        mob.wanderTimerMs = 0;
       }
-      moveMobTowards(state, mob, mob.wanderDirX, mob.wanderDirY, def.moveSpeed * 0.35, dtSec);
-      continue;
     }
 
     // Soft separation from other mobs so packs spread naturally
@@ -246,6 +275,4 @@ export function stepMobsAi(state: GameState, data: GameData, dtMs: number): void
       moveMobTowards(state, mob, dx + sepX * 1.4, dy + sepY * 1.4, speed, dtSec);
     }
   }
-
-  state.rngCombatState = rng.getState();
 }

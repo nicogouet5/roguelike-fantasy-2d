@@ -298,7 +298,7 @@ const namesSchema = z.object({
   weapons: z.record(weaponEnum, z.string().min(1)),
   archetypes: z.record(archetypeEnum, z.string().min(1)),
   tags: z.record(buildTagEnum, z.string().min(1)),
-  classes: z.record(z.string(), nameDescSchema),
+  classes: z.record(z.string(), nameDescSchema.extend({ passive: z.string().min(1) })),
   skills: z.record(z.string(), nameDescSchema),
   mobs: z.record(z.string(), z.string().min(1)),
   maps: z.record(z.string(), z.string().min(1)),

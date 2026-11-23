@@ -40,23 +40,28 @@
   "classes": {
     "trex": {
       "name": "T-Rex",
-      "desc": "Depredador colosal que blande un espadón gigante en sus fauces. Golpes lentos de daño masivo, salto aplastante y rugido aturdidor."
+      "desc": "Coloso lento con espadón entre las fauces: el mayor ATK y alcance cuerpo a cuerpo, pero el paso más pesado. Pasiva — Ejecución Tiránica: +25% de daño a enemigos bajo 45% de vida.",
+      "passive": "Ejecución Tiránica: +25% de daño a enemigos bajo 45% de vida."
     },
     "velociraptor": {
       "name": "Velociraptor",
-      "desc": "Asesino ágil armado con katanas dobles. Velocidad extrema y críticos ×2 a cambio de poca vida y defensa."
+      "desc": "Asesino más veloz del Cretácico, con katanas dobles y críticos letales a cambio de poca vida. Pasiva — Sprint de Cazador: al correr sin parar gana impulso hasta +42% vel. mov., +18% vel. ataque y +12% crítico.",
+      "passive": "Sprint de Cazador: correr sin parar acumula impulso (3 s) hasta +42% vel. mov., +18% vel. ataque y +12% crítico. Se pierde al detenerse."
     },
     "triceratops": {
       "name": "Triceratops",
-      "desc": "Bastión herbívoro cuyos cuernos crecen al subir de nivel como lanzas perforantes en línea recta. Aguanta oleadas y embiste con fuerza sísmica."
+      "desc": "Bastión inquebrantable, el más lento y resistente. Sus cuernos crecen con el nivel como lanzas perforantes. Pasiva — Coraza de Espinas: refleja un 20% del daño recibido.",
+      "passive": "Coraza de Espinas: refleja un 20% del daño recibido y sus cuernos-lanza crecen al subir de nivel."
     },
     "dodo": {
       "name": "Dodo Mago",
-      "desc": "Ave prehistórica con gorrito de mago y báculo arcano. Pese a su aspecto adorable, desata lanzas de magma, rayos jurásicos y lluvias de meteoritos."
+      "desc": "Ave arcana con gorrito de mago y enorme reserva de SP: lanzas de magma, rayos jurásicos y meteoritos. Pasiva — Flujo Arcano: -10% enfriamiento y +2.5 SP/s.",
+      "passive": "Flujo Arcano: -10% de enfriamiento en habilidades y +2.5 SP/s de regeneración."
     },
     "pteranodon": {
       "name": "Pteranodon",
-      "desc": "Tirador alado con arco de hueso. Mantiene distancia con flechas perforantes, ráfagas en abanico y saltos evasivos."
+      "desc": "Francotirador alado que vuela sobre muros y abismos con el mayor alcance del juego. Pasiva — Vuelo de Precisión: +22% de daño a enemigos a más de 4 casillas.",
+      "passive": "Vuelo de Precisión: +22% de daño a enemigos a más de 4 casillas de distancia."
     }
   },
   "skills": {

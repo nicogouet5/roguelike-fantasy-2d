@@ -7,7 +7,7 @@ import { computeDerivedStats, getBasicAttackRange, TAG_SET_TIERS } from '../core
 import type { BuildTag, GameState, StatKey } from '../core/types.ts';
 
 export interface HudCallbacks {
-  onStartRun: (classId: string, seed: string, autoCast: boolean) => void;
+  onStartRun: (classId: string, seed: string, autoCast: boolean, playCutscene?: boolean) => void;
   onDevLevelUp: () => void;
   onDevStage: (index: number) => void;
   onSkillSlot: (index: number) => void;
@@ -49,6 +49,7 @@ export class GameHud {
   private titleEl!: HTMLDivElement;
   private hudLayer!: HTMLDivElement;
   private statusCard!: HTMLDivElement;
+  private waveHudEl!: HTMLDivElement;
   private bossBarEl!: HTMLDivElement;
   private zoneBannerEl!: HTMLDivElement;
   private minimapWrap!: HTMLDivElement;
@@ -69,7 +70,7 @@ export class GameHud {
   ) {
     this.selectedClassId = data.classes[0]!.id;
     this.buildDom();
-    this.showTitle();
+    this.showLoading();
   }
 
   private buildDom(): void {
@@ -79,7 +80,6 @@ export class GameHud {
     this.titleEl = document.createElement('div');
     this.titleEl.id = 'title-overlay';
     this.root.appendChild(this.titleEl);
-    this.renderTitle();
 
     // 2. Active HUD layer
     this.hudLayer = document.createElement('div');
@@ -90,6 +90,10 @@ export class GameHud {
     this.statusCard = document.createElement('div');
     this.statusCard.id = 'status-card';
     this.hudLayer.appendChild(this.statusCard);
+
+    this.waveHudEl = document.createElement('div');
+    this.waveHudEl.id = 'wave-hud';
+    this.hudLayer.appendChild(this.waveHudEl);
 
     this.bossBarEl = document.createElement('div');
     this.bossBarEl.id = 'boss-bar';
@@ -310,13 +314,14 @@ export class GameHud {
             </div>
             <div class="detail-right">
               <h3>${selectedInfo.name}</h3>
-              <p>${selectedInfo.desc}</p>
+              <p>${selectedInfo.desc.split(' Pasiva — ')[0]}</p>
               <div class="meters-grid">
                 ${bar('VIDA', selected.baseHp, 300, '#22c55e')}
                 ${bar('DAÑO', Math.max(selected.baseAtk, selected.baseMatk), 38, '#ef4444')}
-                ${bar('VELOCIDAD', selected.baseMoveSpeed * 10, 55, '#38bdf8')}
+                ${bar('VELOCIDAD', selected.baseMoveSpeed * 10, 62, '#38bdf8')}
                 ${bar('DEFENSA', selected.baseDef, 60, '#f59e0b')}
               </div>
+              <div class="passive-chip">${selectedInfo.passive}</div>
               <div class="skill-list">${skillChips}</div>
             </div>
           </div>
@@ -367,8 +372,25 @@ export class GameHud {
     });
 
     this.titleEl.querySelector('#start-run-btn')!.addEventListener('click', () => {
-      this.cb.onStartRun(this.selectedClassId, this.seed, this.autoCastStart);
+      this.cb.onStartRun(this.selectedClassId, this.seed, this.autoCastStart, true);
     });
+  }
+
+  showLoading(): void {
+    this.stopPreviewAnim();
+    this.hudLayer.style.display = 'none';
+    this.titleEl.style.display = 'flex';
+    this.titleEl.innerHTML = `
+      <div class="title-panel" style="max-width:520px;text-align:center;padding:34px 28px">
+        <div class="title-badge">PIXEL ART · 2D ISOMÉTRICO</div>
+        <div class="fantasy-heading">
+          <span class="orn-divider left"></span>
+          <h1>${this.data.names.ui.title}</h1>
+          <span class="orn-divider right"></span>
+        </div>
+        <p class="title-sub" style="margin-top:14px">Cargando sprites y escenarios...</p>
+      </div>
+    `;
   }
 
   showTitle(): void {
@@ -384,10 +406,15 @@ export class GameHud {
     this.startPreviewAnim();
   }
 
-  hideTitle(): void {
+  hideTitleForCutscene(): void {
     this.stopPreviewAnim();
     this.titleEl.querySelector<HTMLVideoElement>('.landing-cinematic')?.pause();
     this.titleEl.style.display = 'none';
+    this.hudLayer.style.display = 'none';
+  }
+
+  hideTitle(): void {
+    this.hideTitleForCutscene();
     this.hudLayer.style.display = 'block';
     this.statsOpen = false;
     this.escOpen = false;
@@ -447,10 +474,17 @@ export class GameHud {
   }
 
   private renderEscModal(): void {
+    const autoAtk = this.lastState?.player.autoAttack ?? true;
+    const autoCast = this.lastState?.player.autoCast ?? false;
     this.escModal.innerHTML = `
       <div class="modal-card compact">
         <h2>Pausa</h2>
-        <p class="muted">WASD/Flechas mover · 1/2 habilidades · Espacio Dash · 3/E Ultimate · Q poción · C build · R Auto-Cast</p>
+        <p class="muted">WASD/Flechas mover · 1/2 habilidades · Espacio Dash · 3/E Ultimate · Q poción · C build · R Auto-Cast · M Audio</p>
+        <div class="toggle-pills" style="justify-content:center;margin:10px 0 14px">
+          <button class="pill ${autoAtk ? 'on' : ''}" id="esc-auto-atk">Auto-Atk: ${autoAtk ? 'ON' : 'OFF'}</button>
+          <button class="pill ${autoCast ? 'on' : ''}" id="esc-auto-cast">Auto-Cast [R]: ${autoCast ? 'ON' : 'OFF'}</button>
+          <button class="pill ${!this.muted ? 'on' : ''}" id="esc-audio">${this.muted ? 'Audio: OFF' : 'Audio [M]: ON'}</button>
+        </div>
         <div class="modal-actions-col">
           <button class="primary-btn" id="esc-resume">Continuar Cacería</button>
           <button class="secondary-btn" id="esc-restart">Reiniciar con este Dinosaurio</button>
@@ -458,10 +492,22 @@ export class GameHud {
         </div>
       </div>
     `;
+    this.escModal.querySelector('#esc-auto-atk')!.addEventListener('click', () => {
+      this.cb.onToggleAutoAttack();
+      this.renderEscModal();
+    });
+    this.escModal.querySelector('#esc-auto-cast')!.addEventListener('click', () => {
+      this.cb.onToggleAutoCast();
+      this.renderEscModal();
+    });
+    this.escModal.querySelector('#esc-audio')!.addEventListener('click', () => {
+      this.cb.onToggleMute();
+      this.renderEscModal();
+    });
     this.escModal.querySelector('#esc-resume')!.addEventListener('click', () => this.toggleEscMenu());
     this.escModal.querySelector('#esc-restart')!.addEventListener('click', () => {
       if (this.lastState) {
-        this.cb.onStartRun(this.lastState.player.classId, this.lastState.seed, this.lastState.player.autoCast);
+        this.cb.onStartRun(this.lastState.player.classId, this.lastState.seed, this.lastState.player.autoCast, false);
       }
     });
     this.escModal.querySelector('#esc-title')!.addEventListener('click', () => this.cb.onReturnToTitle());
@@ -487,6 +533,11 @@ export class GameHud {
     // Status Card
     const hpPct = Math.round((player.hp / Math.max(1, derived.maxHp)) * 100);
     const spPct = Math.round((player.sp / Math.max(1, derived.maxSp)) * 100);
+    const sprintPct = Math.round(player.sprintMomentum * 100);
+    const sprintMaxed = sprintPct >= 99;
+    const sprintBarHtml = player.classId === 'velociraptor' && player.sprintMomentum > 0.05
+      ? `<div class="bar-row sprint${sprintMaxed ? ' maxed' : ''}"><div class="bar-fill" style="width:${sprintPct}%"></div><span>⚡ SPRINT ${sprintPct}%${sprintMaxed ? ' MAX' : ''}</span></div>`
+      : '';
 
     const buffLabels: Record<string, string> = {
       tyrant_fury: 'Furia Tirano',
@@ -508,7 +559,16 @@ export class GameHud {
           `<span class="buff-chip ${b.id.startsWith('codex_') ? 'codex' : b.id.startsWith('food_') ? 'food' : ''}">${buffLabels[b.id]} ${(b.remainingMs / 1000).toFixed(0)}s</span>`
       )
       .join('');
-    const codexCd = Math.max(0, Math.ceil(state.pet.supportCooldownMs / 1000));
+
+    const canBuyPot = player.amber >= AMBER_POTION_COST;
+    const canBuyOffer = player.amber >= AMBER_OFFER_COST;
+    const amberShopHtml =
+      canBuyPot || canBuyOffer
+        ? `<div class="amber-shop-row">
+            ${canBuyPot ? `<button class="pill amber-btn ready" id="pill-buy-pot" title="Gasta Ámbar para comprar una Poción">+Poción (${AMBER_POTION_COST} ◆)</button>` : ''}
+            ${canBuyOffer ? `<button class="pill amber-btn ready" id="pill-buy-offer" title="Gasta Ámbar para abrir una oferta de 3 mejoras extra">✨ Forjar (${AMBER_OFFER_COST} ◆)</button>` : ''}
+          </div>`
+        : '';
 
     this.statusCard.innerHTML = `
       <div class="hero-row">
@@ -520,41 +580,26 @@ export class GameHud {
             <strong>${clsName}</strong>
             <span>Nv ${player.level}</span>
             <span class="amber-tag">◆ ${player.amber}</span>
+            <button class="hud-mini-link" id="pill-stats" title="Ver build, stats y sinergias [C]">Build [C]</button>
           </div>
           <div class="bar-row hp"><div class="bar-fill" style="width:${hpPct}%"></div><span>HP ${Math.ceil(player.hp)} / ${derived.maxHp}</span></div>
           <div class="bar-row sp"><div class="bar-fill" style="width:${spPct}%"></div><span>SP ${Math.floor(player.sp)} / ${derived.maxSp}</span></div>
+          ${sprintBarHtml}
         </div>
       </div>
-      <div class="pet-buff-row">
-        <span class="pet-badge" title="Pet Codex flotante: te cura o te otorga buffs temporales automáticamente">
-          <img class="pixel-sprite pet-icon" src="${getDinoPreviewDataUrl('pet_codex')}" alt="Codex" />
-          Codex ${codexCd}s
-        </span>
-        ${activeBuffsHtml}
-      </div>
-      <div class="toggle-pills">
-        <button class="pill ${player.autoAttack ? 'on' : ''}" id="pill-auto-atk">Auto-Atk</button>
-        <button class="pill ${player.autoCast ? 'on' : ''}" id="pill-auto-cast">Auto-Cast [R]</button>
-        <button class="pill" id="pill-stats">Build [C]</button>
-        <button class="pill ${!this.muted ? 'on' : ''}" id="pill-audio">${this.muted ? 'Sin Audio' : 'Audio [M]'}</button>
-      </div>
-      <div class="amber-shop-row">
-        <button class="pill amber-btn ${player.amber >= AMBER_POTION_COST ? 'ready' : ''}" id="pill-buy-pot" ${player.amber < AMBER_POTION_COST ? 'disabled' : ''} title="Gasta Ámbar para comprar una Poción">+Poción (${AMBER_POTION_COST} ◆)</button>
-        <button class="pill amber-btn ${player.amber >= AMBER_OFFER_COST ? 'ready' : ''}" id="pill-buy-offer" ${player.amber < AMBER_OFFER_COST ? 'disabled' : ''} title="Gasta Ámbar para abrir una oferta de 3 mejoras extra">✨ Forjar Mejora (${AMBER_OFFER_COST} ◆)</button>
-      </div>
+      ${activeBuffsHtml ? `<div class="pet-buff-row">${activeBuffsHtml}</div>` : ''}
+      ${amberShopHtml}
     `;
-    this.statusCard.querySelector('#pill-auto-atk')!.addEventListener('click', () => this.cb.onToggleAutoAttack());
-    this.statusCard.querySelector('#pill-auto-cast')!.addEventListener('click', () => this.cb.onToggleAutoCast());
-    this.statusCard.querySelector('#pill-stats')!.addEventListener('click', () => this.toggleStatsDrawer());
-    this.statusCard.querySelector('#pill-audio')!.addEventListener('click', () => this.cb.onToggleMute());
-    this.statusCard.querySelector('#pill-buy-pot')!.addEventListener('click', () => this.cb.onBuyAmberPotion());
-    this.statusCard.querySelector('#pill-buy-offer')!.addEventListener('click', () => this.cb.onBuyAmberOffer());
+    this.statusCard.querySelector('#pill-stats')?.addEventListener('click', () => this.toggleStatsDrawer());
+    this.statusCard.querySelector('#pill-buy-pot')?.addEventListener('click', () => this.cb.onBuyAmberPotion());
+    this.statusCard.querySelector('#pill-buy-offer')?.addEventListener('click', () => this.cb.onBuyAmberOffer());
 
-    // Boss HP Bar
+    // Boss HP Bar or Top-Center Wave Progression HUD
     const boss = state.mobs.find((m) => m.isBoss && m.hp > 0);
     if (boss) {
       const pct = Math.max(0, Math.round((boss.hp / boss.maxHp) * 100));
       this.bossBarEl.style.display = 'block';
+      this.waveHudEl.style.display = 'none';
       this.bossBarEl.innerHTML = `
         <div class="boss-title">
           <span>⚔️ ${this.data.names.mobs[boss.mobId]}</span>
@@ -564,6 +609,42 @@ export class GameHud {
       `;
     } else {
       this.bossBarEl.style.display = 'none';
+      this.waveHudEl.style.display = 'block';
+      const totalFloors = this.data.mapsByFloor.length;
+      const isLastWave = state.currentWave >= state.totalWaves;
+      const nextFloorName = this.data.mapsByFloor[state.floorIndex + 1]
+        ? (this.data.names.maps[this.data.mapsByFloor[state.floorIndex + 1]!.id] ?? `Nivel ${state.floorIndex + 2}`)
+        : '';
+      if (state.zoneClearDelayMs > 0) {
+        this.waveHudEl.className = 'cleared';
+        this.waveHudEl.innerHTML = `
+          <div class="wave-hud-top">
+            <span class="wave-badge">NIVEL ${state.floorIndex + 1}/${totalFloors} COMPLETADO</span>
+            <span class="wave-count">Avanzando a ${nextFloorName}...</span>
+          </div>
+          <div class="wave-track"><div class="wave-fill cleared" style="width:100%"></div></div>
+        `;
+      } else if (isLastWave) {
+        this.waveHudEl.className = 'final-wave';
+        this.waveHudEl.innerHTML = `
+          <div class="wave-hud-top">
+            <span class="wave-badge">¡QUEDA UNA PURA OLEADA! (${state.currentWave}/${state.totalWaves})</span>
+            <span class="wave-count">${state.mobs.length} enemigos · Limpia para pasar de nivel</span>
+          </div>
+          <div class="wave-track"><div class="wave-fill final" style="width:100%"></div></div>
+        `;
+      } else {
+        const nextSec = Math.max(0, Math.ceil(state.waveTimerMs / 1000));
+        const pct = Math.max(0, Math.min(100, Math.round((1 - state.waveTimerMs / Math.max(1, mapDef.waveIntervalMs)) * 100)));
+        this.waveHudEl.className = '';
+        this.waveHudEl.innerHTML = `
+          <div class="wave-hud-top">
+            <span class="wave-badge">NIVEL ${state.floorIndex + 1}/${totalFloors} · OLEADA ${state.currentWave}/${state.totalWaves}</span>
+            <span class="wave-count">${state.mobs.length} enemigos · Próx. en ${nextSec}s</span>
+          </div>
+          <div class="wave-track"><div class="wave-fill" style="width:${pct}%"></div></div>
+        `;
+      }
     }
 
     // Minimap + Zone Info + Dark-Fantasy Location Discovered Banner

@@ -323,6 +323,8 @@ export interface PlayerEntity {
   leapAnimMs: number;
   autoAttack: boolean;
   autoCast: boolean;
+  /** Velociraptor "Sprint de Cazador" momentum (0..1): ramps while moving, decays when idle. Always 0 for other classes. */
+  sprintMomentum: number;
 }
 
 export interface PetEntity {

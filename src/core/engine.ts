@@ -18,17 +18,45 @@ function pickWeightedMob(mapDef: MapDef, rng: ReturnType<typeof createRng>): str
   return mapDef.mobs[0]!.mobId;
 }
 
+function hasClearGroundRay(zone: GameState['zone'], x0: number, y0: number, x1: number, y1: number): boolean {
+  const steps = 8;
+  for (let s = 1; s < steps; s++) {
+    const t = s / steps;
+    if (!isWalkable(zone, x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return false;
+  }
+  return true;
+}
+
 function spawnWaveMobs(state: GameState, data: GameData, mapDef: MapDef, count: number): void {
   const rng = createRng(state.rngCombatState);
   for (let i = 0; i < count; i++) {
     if (state.mobs.length >= mapDef.maxMobs) break;
-    for (let tries = 0; tries < 25; tries++) {
+    let spawned = false;
+    // Prefer spawning in an encircling ring around the player with clear ground approach
+    for (let tries = 0; tries < 28; tries++) {
+      const angle = rng.float(0, Math.PI * 2);
+      const radius = rng.float(7.2, 14.5);
+      const mx = state.player.x + Math.cos(angle) * radius;
+      const my = state.player.y + Math.sin(angle) * radius;
+      if (mx < 3 || mx > state.zone.width - 4 || my < 3 || my > state.zone.height - 4) continue;
+      if (!isWalkable(state.zone, mx, my)) continue;
+      if (tries < 20 && !hasClearGroundRay(state.zone, state.player.x, state.player.y, mx, my)) continue;
+      const mobId = pickWeightedMob(mapDef, rng);
+      const waveEliteBonus = state.currentWave >= mapDef.totalWaves ? 0.14 : 0;
+      const isElite = rng.next() < mapDef.eliteChance + waveEliteBonus;
+      spawnMob(state, data, mobId, mx, my, isElite);
+      spawned = true;
+      break;
+    }
+    if (spawned) continue;
+    // Fallback to anywhere walkable near or across the arena
+    for (let tries = 0; tries < 20; tries++) {
       const mx = rng.int(4, state.zone.width - 5) + 0.5;
       const my = rng.int(4, state.zone.height - 5) + 0.5;
       if (!isWalkable(state.zone, mx, my)) continue;
       if (Math.hypot(mx - state.player.x, my - state.player.y) < 6.8) continue;
       const mobId = pickWeightedMob(mapDef, rng);
-      const waveEliteBonus = state.currentWave >= mapDef.totalWaves ? 0.12 : 0;
+      const waveEliteBonus = state.currentWave >= mapDef.totalWaves ? 0.14 : 0;
       const isElite = rng.next() < mapDef.eliteChance + waveEliteBonus;
       spawnMob(state, data, mobId, mx, my, isElite);
       break;
@@ -105,6 +133,7 @@ export function createGameState(
       leapAnimMs: 0,
       autoAttack: true,
       autoCast: options.autoCast ?? false,
+      sprintMomentum: 0,
     },
     pet: {
       id: 'pet_codex',
@@ -170,6 +199,7 @@ export function enterZone(state: GameState, data: GameData, nextFloor: number): 
   state.zone = generateZoneMap(nextMap, state.seed);
   state.player.x = state.zone.spawn.x;
   state.player.y = state.zone.spawn.y;
+  state.player.sprintMomentum = 0;
   state.pet.x = state.zone.spawn.x - 1.1;
   state.pet.y = state.zone.spawn.y - 0.8;
   state.projectiles = [];
@@ -308,6 +338,18 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
 
   const player = state.player;
   const cls = data.classesById[player.classId]!;
+
+  // Velociraptor innate "Sprint de Cazador": momentum ramps while moving (~3 s to cap) and decays fast when idle.
+  if (player.classId === 'velociraptor') {
+    if (Math.hypot(input.moveX, input.moveY) > 0.15) {
+      player.sprintMomentum = Math.min(1, player.sprintMomentum + dtSec / 3.0);
+    } else {
+      player.sprintMomentum = Math.max(0, player.sprintMomentum - dtSec / 0.8);
+    }
+  } else {
+    player.sprintMomentum = 0;
+  }
+
   const derived = computeDerivedStats(state, data);
 
   // Decay player timers & buffs

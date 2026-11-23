@@ -63,6 +63,7 @@ export class GameScene extends Phaser.Scene {
   private gameData!: GameData;
   private state: GameState | null = null;
   private hud: GameHud | null = null;
+  private assetsReady = false;
 
   private tileGroup: Phaser.GameObjects.Image[] = [];
   private propSprites: Phaser.GameObjects.Sprite[] = [];
@@ -94,6 +95,7 @@ export class GameScene extends Phaser.Scene {
   private animClockMs = 0;
   private playerWalkPhase = 0;
   private lastPlayerStepIdx = -1;
+  private sprintTrailTimerMs = 0;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -101,6 +103,9 @@ export class GameScene extends Phaser.Scene {
 
   attachHud(hud: GameHud): void {
     this.hud = hud;
+    if (this.assetsReady && !this.state) {
+      this.hud.showTitle();
+    }
   }
 
   preload(): void {
@@ -121,6 +126,10 @@ export class GameScene extends Phaser.Scene {
     clearDinoPreviewCache();
     buildPixelAtlas(this);
     buildArenaArchitecture(this);
+    this.assetsReady = true;
+    if (!this.state) {
+      this.hud?.showTitle();
+    }
 
     this.particles = new ParticlePool(this, 100);
     this.damageText = new DamageTextPool(this, 48);
@@ -366,6 +375,7 @@ export class GameScene extends Phaser.Scene {
     this.damageText.clear();
     this.slashFx.clear();
     this.afterimages.clear();
+    this.sprintTrailTimerMs = 0;
   }
 
   private rebuildZoneVisuals(): void {
@@ -668,6 +678,21 @@ export class GameScene extends Phaser.Scene {
     this.playerSprite.setScale(sx, sy);
     this.playerSprite.setPosition(pScreen.x, pScreen.y - leapLift);
     this.playerSprite.setDepth(pScreen.y + 4);
+
+    const momentum = player.sprintMomentum;
+    if (cls.id === 'velociraptor' && isMoving && momentum >= 0.3 && !state.paused && state.status === 'playing') {
+      this.sprintTrailTimerMs -= dtMs;
+      if (this.sprintTrailTimerMs <= 0) {
+        this.afterimages.spawn(pScreen.x, pScreen.y - leapLift, frameKey, this.playerSprite.flipX, 0.96, 'Wind', 0.22 + momentum * 0.22, 180);
+        if (momentum >= 0.95) {
+          this.particles.burst(pScreen.x, pScreen.y - leapLift + 4, 'Wind', 1, 28);
+        }
+        this.sprintTrailTimerMs += 130 - momentum * 60;
+      }
+    } else {
+      this.sprintTrailTimerMs = 0;
+    }
+
     if (cls.id === 'triceratops' && this.triceratopsHornGrowth) {
       drawTriceratopsHornGrowth(
         this.triceratopsHornGrowth,

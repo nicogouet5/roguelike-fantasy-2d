@@ -55,32 +55,40 @@ Status tags: **[done]** shipped · **[wip]** in progress · **[todo]** defined &
 - **`Q`:** Drink Amber Potion (`Poción de Ámbar`).
 - **`C`:** Build & Synergies Sheet · **`M`:** Mute · **`Esc`:** Pause.
 
-### 3.2 Playable Classes — 5 Species **[done base · todo Dash on Space + Ultimates]**
+### 3.2 Clases Jugables — 5 Especies con Pasivas Innatas **[done]**
 
-| ID | Species (ES) | Weapon | Archetype | Basic & Core Skills | Dash (`Space`) **[todo]** | Ultimate (Long CD) **[todo]** |
+| ID | Especie (ES) | Arma | Arquetipo | Habilidades Base y Activas | Dash (`Space`) | Ultimate (CD Largo) |
 |---|---|---|---|---|---|---|
-| `trex` | **T-Rex** | Espadón Gigante (en fauces) | **Coloso de Daño Bruto** | *Tajo de Fauces*, *Tajo Colosal* (165°), *Rugido Tirano* | *Salto Mandíbula* (salto aplastante en área) | **Corte Extinción:** salto aéreo + tajo volcánico gigante que abre una fisura ardiente en línea/cono. |
-| `velociraptor` | **Velociraptor** | Katanas Dobles | **DPS Glass Cannon Veloz** (crítico ×2) | *Corte Katana*, *Tormenta de Katanas* (4 golpes), *Instinto Depredador* | *Corte Relámpago* (dash atravesando enemigos + sangrado) | **Danza de los Mil Cortes:** invulnerable `1.8 s`, encadena 8 cortes relámpago 100% críticos entre enemigos cercanos. |
-| `triceratops` | **Triceratops** | Cuernos-Lanza y Escudo | **Tanque Herbívoro Acorazado** | *Estocada de Cuernos* **[done]** (`line_pierce` estilo Q de Jarvan IV: perfora en línea recta ignorando 30%+ DEF y **crece al subir de nivel**), *Égida de Placas*, *Pisotón Sísmico* | *Carga de Cuernos* (embestida blindada que empuja y aturde) | **Estampida Jurásica:** carga colosal imparable con cuernos dorados gigantes que aturde y levanta pilares sísmicos en todo el trayecto. |
-| `dodo` | **Dodo Mago** | Gorrito de Mago + Báculo de Mago | **Mago Elemental Primordial** | *Chispa de Ámbar*, *Lanza de Magma*, *Rayo Jurásico*, *Lluvia de Meteoritos* | *Salto de Plumas* (teletransporte arcano corto dejando explosión de chispas) | **Cataclismo del Meteorito:** levita con su gorrito brillando e invoca un meteorito gigante del cielo con onda expansiva masiva. |
-| `pteranodon` | **Pteranodon** | Arco de Hueso | **Arquero Cazador Aéreo** | *Flecha de Hueso*, *Flecha Perforante* (ignora 40% DEF), *Lluvia de Espinas* (5 flechas) | *Impulso de Alas* (salto evasivo con ráfaga de viento + velocidad) | **Tempestad de Plumas Óseas:** asciende y desata un huracán circular de flechas perforantes en toda la pantalla. |
+| `trex` | **T-Rex** | Mandoble Colosal de Hierro (en fauces) | **Coloso de Daño Bruto** | *Barrido de Fauces*, *Tajo Colosal* (165°), *Rugido Tirano* | *Salto Mandíbula* (salto aplastante en área) | **Corte Extinción:** espadazo volcánico colosal de 200° que ignora 45% DEF, empuja y aturde. |
+| `velociraptor` | **Velociraptor** | Katanas Dobles | **DPS Glass Cannon Veloz** (crítico ×2.15) | *Corte Katana*, *Tormenta de Katanas* (4 golpes), *Instinto Depredador* | *Corte Relámpago* (dash atravesando enemigos + sangrado) | **Danza de Mil Cortes:** intocable, encadena 7 cortes relámpago 100% críticos con sangrado masivo. |
+| `triceratops` | **Triceratops** | Cuernos-Lanza y Escudo | **Tanque Herbívoro Acorazado** | *Estocada de Cuernos* (`line_pierce`: perfora en línea ignorando 30% DEF), *Égida de Placas*, *Pisotón Sísmico* | *Carga de Cuernos* (embestida blindada que empuja y aturde) | **Estampida Jurásica:** embestida colosal imparable que arrasa, aturde `2 s` y activa *Égida de Placas*. |
+| `dodo` | **Dodo Mago** | Gorrito + Báculo de Mago | **Mago Elemental Primordial** | *Chispa de Ámbar*, *Lanza de Magma*, *Rayo Jurásico* | *Salto de Plumas* (dash arcano con estallido de chispas ígneas) | **Cataclismo Meteorito:** invoca 4 meteoritos gigantes en una enorme área ardiente que aturde a todos. |
+| `pteranodon` | **Pteranodon** | Arco de Hueso | **Arquero Cazador Aéreo** | *Flecha de Hueso*, *Flecha Perforante* (ignora 40% DEF), *Lluvia de Espinas* (5 flechas) | *Impulso de Alas* (salto evasivo con ráfaga de viento + velocidad) | **Tempestad de Plumas:** huracán circular de 14 flechas perforantes en 360° que ignoran 55% DEF y aceleran el vuelo. |
+
+#### Pasivas Innatas por Clase (`src/core/stats.ts`, `skills.ts`, `engine.ts`, `classes.json`, `names.es.json`)
+
+- **T-Rex — *Ejecución Tiránica*:** inflige **+25% de daño** contra enemigos que estén por debajo del **45% de HP**.
+- **Velociraptor — *Sprint de Cazador*:** posee la **velocidad base más alta** (`5.95`) y acumula impulso continuo al moverse sin detenerse (`~3 s` hasta el tope; decae rápido al quedar quieto), otorgando hasta **+42% de velocidad de movimiento** (superando el tope normal hasta `9.5`), **+18% de velocidad de ataque (ASPD)** y **+12% de probabilidad de crítico**.
+- **Triceratops — *Bastión (Coraza de Espinas)* + Cuernos-Lanza crecientes:** cuenta con **20% de reflejo de daño innato** al recibir golpes y sus **Cuernos-Lanza** (*Estocada de Cuernos*) crecen progresivamente en alcance al subir de nivel.
+- **Dodo Mago — *Maestría Arcana (Flujo Arcano)*:** posee **-10% de enfriamiento (CDR)** en habilidades y **+2.5 SP/s** de regeneración de energía de forma innata.
+- **Pteranodon — *Vuelo de Precisión* + Vuelo Libre:** inflige **+22% de daño** a enemigos situados a más de **4 casillas (`tiles`)** de distancia y disfruta de **vuelo libre** (`canFly: true`) para desplazarse sin obstrucciones sobre muros y abismos.
 
 ---
 
-## 4. Run Loop: Timed Overlapping Waves & Biome Progression **[todo]**
+## 4. Bucle de Partida: Oleadas Exigentes, Wave HUD y Persecución Global **[done]**
 
 ```
-Title (Dino Class Select + Animated Pixel Preview + Seed)
-  → Zone 1: Claustro Mineral (3 timed overlapping waves → auto-advance)
-  → Zone 2: Puente Quebrado (4 timed overlapping waves + Elites → auto-advance)
-  → Zone 3: Fortaleza Falla 23 (Elite-heavy waves → auto-advance)
-  → Zone 4: Osario Hundido (2-Phase Boss: Spinosaurus Hoja-Abisal)
-  → Run Summary → Instant Restart
+Title (Selección de Dino + Preview Pixel Animado + Seed)
+  → Nivel 1: Claustro Mineral (3 oleadas superpuestas: 11 mobs/oleada, máx. 32, 16 s/oleada, 14% Élites)
+  → Nivel 2: Puente Quebrado (4 oleadas superpuestas: 13 mobs/oleada, máx. 38, 17 s/oleada, 24% Élites)
+  → Nivel 3: Fortaleza Falla 23 (4 oleadas superpuestas: 15 mobs/oleada, máx. 42, 17 s/oleada, 28% Élites)
+  → Nivel 4: Osario Hundido (Jefe de 2 fases: Spinosaurus / Bodoque Hoja-Abisal)
+  → Resumen de Run → Reinicio Instantáneo
 ```
 
-- **No Portal Gatekeeping:** Advancing to the next biome no longer requires walking to a map portal; instead, surviving and clearing **X waves** automatically transitions to the next biome (with a short celebratory breather + 31 Minutos NPC cameo / Amber shop moment).
-- **Overlapping Pressure Waves:** Each wave runs on a **strict wave timer** (e.g., `20–25 s`). **The next wave spawns automatically even if mobs from the previous wave are still alive**, creating escalating Brotato/Vampire Survivors-style pressure when DPS lags. Clearing a wave early skips the remaining wait and grants an **Amber bonus**.
-- **Final Wave Tension («Queda una pura»):** When entering the final wave of a biome, the HUD flashes a bold dramatic banner: **«¡Queda una pura oleada!»** (see §6).
+- **Wave HUD superior-central (`#wave-hud`):** panel fijo en la parte superior central con marco estilo Kenney (`panel-slate.png` / `panel-gold.png`) que muestra en todo momento el piso y oleada actual (`NIVEL X/4 · OLEADA Y/Z`), el conteo de enemigos vivos, los segundos restantes para la siguiente oleada y una barra de progreso animada. Cambia dinámicamente a estado `.final-wave` (**«¡QUEDA UNA PURA OLEADA!»**) al entrar en la última oleada del piso y a `.cleared` (*«NIVEL X/4 COMPLETADO · Avanzando a...»*) tras despejarla antes de la transición automática de bioma (sin portales).
+- **Oleadas más densas y superpuestas:** cada oleada avanza bajo un temporizador estricto (`16–17 s`) y genera grupos más numerosos (`11`, `13` y `15` enemigos por oleada según el piso, con `+2` enemigos extra en la oleada final y mayor probabilidad de Élites). Si no se limpia a tiempo, la siguiente oleada aparece encima creando presión acumulada; limpiar una oleada antes de tiempo recorta la espera a `1.4 s` y otorga **+20 ◆ de Ámbar** de bonificación.
+- **Persecución global implacable (*Relentless Global Mob Chase*):** todos los enemigos poseen alcance de detección global (`aggroRange: 99.0` en `src/data/mobs.json`) para perseguir al jugador desde cualquier punto del mapa sin perder el aggro. Además, `src/core/ai.ts` incorpora reposicionamiento anti-atasco: si un enemigo no-jefe queda muy lejos (`> 20` tiles) o bloqueado detrás de obstáculos durante `2.6 s`, se teletransporta a una casilla transitable de flanqueo (`~10.5` tiles alrededor del jugador), evitando tiempos muertos buscando rezagados.
 
 ---
 
