@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import combatFrames from './codex/combat-frames.png';
+import bodoqueBoss from './boss/bodoque-hoja-abisal.png';
 import { articulateCodexFrame } from './actorMotion.ts';
 import type { AnimPose } from './pixelArt.ts';
 
@@ -18,13 +19,16 @@ const portraits: Record<string, number> = {
   mob_carno: 4,
 };
 let sheet: CanvasImageSource | undefined;
+let bossSource: CanvasImageSource | undefined;
 
 export function preloadCodexArt(scene: Phaser.Scene): void {
   scene.load.image(SHEET, combatFrames);
+  scene.load.image('bodoque_boss', bodoqueBoss);
 }
 
 export function registerCodexArt(scene: Phaser.Scene): void {
   sheet = scene.textures.exists(SHEET) ? scene.textures.get(SHEET).getSourceImage() as CanvasImageSource : undefined;
+  bossSource = scene.textures.exists('bodoque_boss') ? scene.textures.get('bodoque_boss').getSourceImage() as CanvasImageSource : undefined;
 }
 
 export function codexFrame(spriteId: string, pose: AnimPose, frame: number): HTMLCanvasElement | undefined {
@@ -39,6 +43,10 @@ export function codexFrame(spriteId: string, pose: AnimPose, frame: number): HTM
   canvas.width = canvas.height = SIZE;
   const ctx = canvas.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(sheet, (index % 6) * SIZE, Math.floor(index / 6) * SIZE, SIZE, SIZE, 0, 0, SIZE, SIZE);
+  if (spriteId === 'boss_spinosaurus' && bossSource) {
+    ctx.drawImage(bossSource, 0, 0, SIZE, SIZE);
+  } else {
+    ctx.drawImage(sheet, (index % 6) * SIZE, Math.floor(index / 6) * SIZE, SIZE, SIZE, 0, 0, SIZE, SIZE);
+  }
   return articulateCodexFrame(spriteId, canvas, pose, frame);
 }
