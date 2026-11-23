@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src tests",
-    "sim": "tsx src/sim/runSim.ts"
+    "sim": "tsx src/sim/runSim.ts",
+    "remotion:studio": "remotion studio remotion/index.ts",
+    "remotion:render": "remotion render remotion/index.ts DinoLikeLanding public/landing/dinolike-landing.mp4 --codec=h264 --crf=20 --overwrite"
   },
   "dependencies": {
     "phaser": "4.2.1",
@@ -19,8 +21,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
+    "@remotion/cli": "^4.0.290",
     "@types/node": "^22.13.10",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
     "eslint": "^9.22.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.290",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.26.1",

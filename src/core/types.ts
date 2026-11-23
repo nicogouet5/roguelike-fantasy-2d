@@ -359,6 +359,8 @@ export interface MobEntity {
   hitFlashMs: number;
   attackAnimMs: number;
   attackAnimDurationMs: number;
+  /** Identity of the active cast; presentation may use it, combat never does. */
+  attackSkillId?: string;
   wanderTimerMs: number;
   wanderDirX: number;
   wanderDirY: number;
@@ -539,6 +541,8 @@ export type GameEvent =
       mobId: string;
       isBoss: boolean;
       isElite: boolean;
+      x: number;
+      y: number;
     }
   | {
       type: 'boss_phase';

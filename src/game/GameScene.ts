@@ -6,6 +6,7 @@ import { preloadFoodArt, registerFoodArt } from '../assets/foodArt.ts';
 import { preloadPlayableSheets, registerPlayableSheets } from '../assets/playableSheets.ts';
 import { preloadMobSheets, registerMobSheets } from '../assets/mobSheets.ts';
 import { buildArenaArchitecture } from './arenaArchitecture.ts';
+import { BossVisuals, getBossMotion } from './bossVisuals.ts';
 import { audioManager } from '../audio/synth.ts';
 import { buyAmberOffer, pickBoon, rerollOffer, skipOffer } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
@@ -17,6 +18,7 @@ import type { ElementName, GameState } from '../core/types.ts';
 import type { GameHud } from './hud.ts';
 import { renderMapVisuals } from './mapRenderer.ts';
 import { preloadScenarioTextures } from './scenarioArt.ts';
+import { preloadScenarioSurfaces } from './scenarioSurfaces.ts';
 import { drawTriceratopsHornGrowth } from './triceratopsHorns.ts';
 import {
   AfterimagePool,
@@ -34,6 +36,7 @@ interface MobVisual {
   hpBar: Phaser.GameObjects.Rectangle;
   walkPhase: number;
   baseScale: number;
+  isBoss: boolean;
 }
 
 interface HornThrustFx {
@@ -75,6 +78,7 @@ export class GameScene extends Phaser.Scene {
   private dropSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private telegraphGraphics: Phaser.GameObjects.Graphics | null = null;
   private lineFxGraphics: Phaser.GameObjects.Graphics | null = null;
+  private bossVisuals!: BossVisuals;
   private hornThrusts: HornThrustFx[] = [];
   private lightningArcs: LightningFx[] = [];
 
@@ -105,6 +109,7 @@ export class GameScene extends Phaser.Scene {
     preloadPlayableSheets(this);
     preloadMobSheets(this);
     preloadScenarioTextures(this);
+    preloadScenarioSurfaces(this);
   }
 
   create(): void {
@@ -125,6 +130,7 @@ export class GameScene extends Phaser.Scene {
     this.telegraphGraphics.setDepth(15);
     this.lineFxGraphics = this.add.graphics();
     this.lineFxGraphics.setDepth(1400);
+    this.bossVisuals = new BossVisuals(this);
 
     this.cameras.main.setBackgroundColor('#141c15');
     this.cameras.main.setRoundPixels(true);
@@ -353,6 +359,7 @@ export class GameScene extends Phaser.Scene {
     this.dropSprites.clear();
     this.telegraphGraphics?.clear();
     this.lineFxGraphics?.clear();
+    this.bossVisuals.reset();
     this.hornThrusts = [];
     this.lightningArcs = [];
     this.particles.clear();
@@ -431,6 +438,7 @@ export class GameScene extends Phaser.Scene {
     this.damageText.update(dtMs);
     this.slashFx.update(dtMs);
     this.afterimages.update(dtMs);
+    this.bossVisuals.update(dtMs);
     this.updateLineFx(dtMs);
 
     if (this.hitstopMs > 0) {
@@ -465,6 +473,16 @@ export class GameScene extends Phaser.Scene {
               this.hitstopMs = 28;
               this.cameras.main.shake(90, 0.004);
             }
+          }
+          break;
+        }
+        case 'kill': {
+          if (ev.isBoss) {
+            const visual = [...this.mobVisuals.values()].find((candidate) => candidate.isBoss);
+            if (visual) this.bossVisuals.defeat(visual.sprite);
+            const p = gridToScreen(ev.x, ev.y);
+            this.particles.burst(p.x, p.y - 16, 'Fire', 20, 155);
+            this.cameras.main.shake(190, 0.008);
           }
           break;
         }
@@ -534,6 +552,14 @@ export class GameScene extends Phaser.Scene {
           this.cameras.main.shake(320, 0.012);
           audioManager.setMusicMode('boss');
           audioManager.play('boss_phase');
+          {
+            const boss = this.state.mobs.find((mob) => mob.isBoss);
+            if (boss) {
+              const p = gridToScreen(boss.x, boss.y);
+              this.bossVisuals.phaseShift(p.x, p.y);
+              this.particles.burst(p.x, p.y - 20, 'Fire', 16, 125);
+            }
+          }
           break;
         case 'dash_trail': {
           const flipX = ev.toX - ev.fromX - (ev.toY - ev.fromY) < 0;
@@ -706,7 +732,7 @@ export class GameScene extends Phaser.Scene {
         const barW = mob.isBoss ? 78 : mob.isElite ? 44 : 32;
         const hpBg = this.add.rectangle(0, 0, barW + 2, 6, 0x09090b, 0.85);
         const hpBar = this.add.rectangle(0, 0, barW, 4, mob.isBoss ? 0xef4444 : mob.isElite ? 0xf59e0b : 0x22c55e, 1);
-        vis = { sprite, shadow, hpBg, hpBar, walkPhase: Math.random() * 6, baseScale };
+        vis = { sprite, shadow, hpBg, hpBar, walkPhase: Math.random() * 6, baseScale, isBoss: mob.isBoss };
         this.mobVisuals.set(mob.id, vis);
       }
 
@@ -715,8 +741,43 @@ export class GameScene extends Phaser.Scene {
       let mFrame: string;
       let msx = vis.baseScale;
       let msy = vis.baseScale;
+      let mobOffsetX = 0;
+      let mobOffsetY = 0;
+      let shadowScale = 1;
+      let shadowAlpha = 0.42;
 
-      if (mob.attackAnimMs > 0) {
+      if (mob.isBoss) {
+        if (mSpeed > 0.12 && mob.attackAnimMs <= 0) {
+          // A lower cadence makes the huge sail and tail feel planted.
+          vis.walkPhase = (vis.walkPhase + dtSec * (1.65 * mSpeed)) % ANIM_COUNTS.walk;
+        }
+        const attackProgress = mob.attackAnimMs > 0
+          ? Math.max(0, Math.min(0.999, 1 - mob.attackAnimMs / Math.max(150, mob.attackAnimDurationMs || 400)))
+          : undefined;
+        const motion = getBossMotion({
+          attackSkillId: mob.attackSkillId,
+          attackProgress,
+          moving: mSpeed > 0.12 && attackProgress === undefined,
+          walkPhase: vis.walkPhase,
+          phase: mob.bossPhase,
+          hitFlashMs: mob.hitFlashMs,
+        });
+        const pose: AnimPose = attackProgress === undefined && mSpeed > 0.12 ? 'walk' : attackProgress === undefined ? 'idle' : 'atk';
+        mFrame = getDinoFrameName(mobDef.spriteId, pose, motion.frame);
+        msx *= motion.scaleX;
+        msy *= motion.scaleY;
+        mobOffsetX = motion.offsetX;
+        mobOffsetY = motion.offsetY;
+        shadowScale = motion.shadowScale;
+        shadowAlpha = motion.shadowAlpha;
+        if (this.bossVisuals.observeMovement(mob.id, mScreen.x, mScreen.y)) {
+          // The actual destination remains core-owned; this is just the
+          // compressed landing beat after Salto Abisal resolves.
+          mobOffsetY += 7;
+          msy *= 0.9;
+          shadowScale *= 1.25;
+        }
+      } else if (mob.attackAnimMs > 0) {
         const mDur = Math.max(150, mob.attackAnimDurationMs || 340);
         const prog = Math.max(0, Math.min(0.999, 1 - mob.attackAnimMs / mDur));
         const aIdx = Math.floor(prog * ANIM_COUNTS.atk);
@@ -740,9 +801,10 @@ export class GameScene extends Phaser.Scene {
       const mFaceScreenX = mob.facingX - mob.facingY;
       if (Math.abs(mFaceScreenX) > 0.05) vis.sprite.setFlipX(mFaceScreenX < 0);
 
-      vis.sprite.setPosition(mScreen.x, mScreen.y);
+      vis.sprite.setPosition(mScreen.x + mobOffsetX, mScreen.y + mobOffsetY);
       vis.sprite.setDepth(mScreen.y + 2);
       vis.shadow.setPosition(mScreen.x, mScreen.y + 4);
+      vis.shadow.setScale(shadowScale, shadowScale * 0.84).setAlpha(shadowAlpha);
       vis.shadow.setDepth(mScreen.y - 3);
 
       const barY = mScreen.y - (mob.isBoss ? 104 : 52);
@@ -753,6 +815,16 @@ export class GameScene extends Phaser.Scene {
         .setPosition(mScreen.x - (barW * (1 - ratio)) * 0.5, barY)
         .setSize(Math.max(1, barW * ratio), 4)
         .setDepth(mScreen.y + 201);
+
+      if (mob.isBoss) {
+        // The longer bar and phase color make the 50% escalation readable
+        // without adding a second danger-colored ground effect.
+        vis.hpBg.setSize(112, 7).setFillStyle(0x130b16, 0.92);
+        vis.hpBar
+          .setPosition(mScreen.x - (110 * (1 - ratio)) * 0.5, barY)
+          .setSize(Math.max(1, 110 * ratio), 5)
+          .setFillStyle(mob.bossPhase === 2 ? 0xfb7185 : 0x38bdf8, 1);
+      }
 
       if (mob.hitFlashMs > 0) {
         tintSprite(vis.sprite, 0xffffff, true);

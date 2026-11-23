@@ -5,6 +5,7 @@ import { scenarioSetPieces, scenarioStyle } from '../core/scenarioLayouts.ts';
 import type { MapPaletteDef, TileKind, ZoneMap } from '../core/types.ts';
 import { ruinKey, type RuinKind } from './arenaArchitecture.ts';
 import { ensureScenarioTextures, hash, scnKey, type ArtStyle } from './scenarioArt.ts';
+import { addScenarioSurface, surfaceEdgeDistance } from './scenarioSurfaces.ts';
 import type { MapVisuals } from './mapRenderer.ts';
 
 /**
@@ -92,7 +93,8 @@ export function renderScenarioVisuals(
 
       if (kind === 'ground' || kind === 'portal' || kind === 'path') {
         const surface = kind === 'ground' ? 'slab' : 'path';
-        objs.push(scene.add.image(pos.x, pos.y, scnKey(surface, art, v)).setDepth(-1000 + pos.y * 0.01));
+        const painted = addScenarioSurface(scene, style, pos, gx, gy, v, surface === 'path', surfaceEdgeDistance(gx, gy, isOpen));
+        objs.push(painted ?? scene.add.image(pos.x, pos.y, scnKey(surface, art, v)).setDepth(-1000 + pos.y * 0.01));
         const archFace = art === 'bridge' && gx % 4 === 1;
         if (isDrop(gx, gy + 1)) {
           objs.push(scene.add.image(pos.x - 32, pos.y, scnKey(`faceL${archFace ? 'a' : ''}`, art)).setOrigin(0, 0).setDepth(-1000.5 + pos.y * 0.01));

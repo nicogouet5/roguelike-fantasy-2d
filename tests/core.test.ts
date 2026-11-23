@@ -11,6 +11,7 @@ import {
   rollBoonOffer,
 } from '../src/core/boons.ts';
 import { runHeadlessBot } from '../src/core/bot.ts';
+import { spawnMob } from '../src/core/ai.ts';
 import { loadGameData } from '../src/core/data.ts';
 import { getElementMultiplier } from '../src/core/elements.ts';
 import { buyAmberPotion, createGameState, stepGame, transitionToNextZone, usePotion } from '../src/core/engine.ts';
@@ -334,6 +335,25 @@ describe('DinoBlade Core & Data Validation', () => {
     const sim = runHeadlessBot(data, 'trex', 'sim-smoke', 60);
     expect(sim.kills).toBeGreaterThan(0);
     expect(sim.damageDealt).toBeGreaterThan(0);
+  });
+
+  it('records the boss cast identity for presentation without changing its telegraph contract', () => {
+    const state = createGameState(data, { classId: 'velociraptor', seed: 'boss-visual-cue' });
+    state.mobs = [];
+    const boss = spawnMob(state, data, 'spinosaurus_boss', state.player.x + 3, state.player.y);
+
+    const result = cast(state, data, boss.id, 'boss_abyssal_leap', { x: state.player.x, y: state.player.y });
+
+    expect(result.ok).toBe(true);
+    expect(boss.attackSkillId).toBe('boss_abyssal_leap');
+    expect(boss.attackAnimDurationMs).toBe(400);
+    expect(state.telegraphs).toHaveLength(1);
+    expect(state.telegraphs[0]).toMatchObject({
+      ownerId: boss.id,
+      skillId: 'boss_abyssal_leap',
+      leapOwner: true,
+      durationMs: 1050,
+    });
   });
 
   it('updates the floating Codex pet to follow the player and grant heals or temporary buffs', () => {

@@ -268,6 +268,8 @@ export function handleMobDeath(state: GameState, data: GameData, mob: MobEntity)
     mobId: mob.mobId,
     isBoss: mob.isBoss,
     isElite: mob.isElite,
+    x: mob.x,
+    y: mob.y,
   });
 
   // Drops: Chilean fast food drops (~34% normal mobs, 100% elites) + occasional potions!
@@ -970,6 +972,9 @@ function castMobSkill(
   mob.facingY = dy;
   mob.attackAnimDurationMs = mob.isBoss ? 400 : 340;
   mob.attackAnimMs = mob.attackAnimDurationMs;
+  // This is presentation metadata only. Damage, hitboxes and cooldowns stay
+  // exclusively in the template switch below.
+  mob.attackSkillId = skill.id;
 
   const base = (skill.isPhysical ? mobDef.atk : mobDef.matk) * eliteMult * phaseMult;
   const mult = (skill.isPhysical ? skill.atkMult : skill.matkMult) ?? 1.0;

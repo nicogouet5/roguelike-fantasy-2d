@@ -156,36 +156,41 @@ body,
 .landing-hero {
   min-height: 100svh;
   display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1.08fr);
+  grid-template-columns: minmax(390px, 0.96fr) minmax(420px, 1.04fr);
   gap: 12px;
   padding: 12px;
-  overflow: hidden;
+  background: var(--landing-ground);
 }
 
 .landing-copy {
   position: relative;
   isolation: isolate;
+  width: auto;
   min-height: calc(100svh - 24px);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
   padding: clamp(34px, 6vw, 96px);
-  background: #17131d;
+  background: linear-gradient(145deg, #17131d 0%, #211621 100%);
   overflow: hidden;
 }
 
-.landing-copy::after {
+.landing-copy::before {
   content: '';
   position: absolute;
   z-index: -1;
-  width: min(36vw, 460px);
-  height: 118%;
-  right: -14%;
-  top: -9%;
-  background: var(--landing-plum);
-  clip-path: polygon(48% 0, 70% 36%, 100% 48%, 68% 58%, 45% 100%, 38% 60%, 0 50%, 38% 39%);
-  opacity: 0.45;
+  inset: -35%;
+  background:
+    linear-gradient(112deg, transparent 44%, rgba(241, 62, 97, 0.09) 49%, rgba(245, 237, 232, 0.04) 50%, transparent 55%),
+    repeating-linear-gradient(0deg, transparent 0 11px, rgba(245, 237, 232, 0.018) 12px 13px);
+  animation: landing-sweep 9s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  pointer-events: none;
+}
+
+.landing-copy > * {
+  position: relative;
+  z-index: 1;
 }
 
 .landing-genre {
@@ -196,7 +201,19 @@ body,
   font-weight: 700;
 }
 
+.landing-genre::before {
+  content: '';
+  display: inline-block;
+  width: 28px;
+  height: 3px;
+  margin: 0 12px 4px 0;
+  background: var(--landing-coral);
+  transform-origin: left center;
+  animation: landing-mark-pulse 2.8s ease-in-out infinite;
+}
+
 .landing-copy h1 {
+  position: relative;
   margin: 0;
   font-family: var(--font-display);
   color: var(--landing-ink);
@@ -205,9 +222,25 @@ body,
   text-transform: uppercase;
 }
 
+.landing-copy h1::after {
+  content: '';
+  position: absolute;
+  left: -8%;
+  top: 48%;
+  width: 116%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(245, 237, 232, 0.78), var(--landing-coral), transparent);
+  opacity: 0;
+  transform: translate3d(-45%, -50%, 0) rotate(-5deg) scaleX(0.18);
+  animation: landing-blade-flash 6.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
 .landing-copy h1 span {
   display: block;
   font-size: clamp(64px, 6.1vw, 126px);
+  transform-origin: left center;
+  animation: landing-title-breathe 5.5s ease-in-out infinite;
 }
 
 .landing-copy h1 small {
@@ -228,6 +261,7 @@ body,
 }
 
 .landing-action {
+  position: relative;
   min-height: 54px;
   padding: 14px 24px;
   border: 0;
@@ -237,6 +271,18 @@ body,
   cursor: pointer;
   clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 50%, calc(100% - 15px) 100%, 0 100%, 12px 50%);
   transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.landing-action::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 2px solid rgba(241, 62, 97, 0.62);
+  clip-path: inherit;
+  opacity: 0;
+  transform: scale(0.96);
+  animation: landing-action-signal 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  pointer-events: none;
 }
 
 .landing-action:hover,
@@ -262,24 +308,25 @@ body,
 
 .landing-art {
   position: relative;
+  overflow: hidden;
   min-height: calc(100svh - 24px);
-  background-image: url('../docs/concept-art-dark-fantasy.jpg');
-  background-position: center 56%;
-  background-size: cover;
+  background: linear-gradient(145deg, #3b273b 0%, #71496f 52%, #a44662 100%);
   image-rendering: pixelated;
 }
 
-.landing-art::after {
-  content: '';
+.landing-cinematic {
   position: absolute;
-  inset: auto 0 0;
-  height: 18%;
-  background: rgba(12, 11, 18, 0.72);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  image-rendering: pixelated;
 }
 
 .landing-art span {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   right: 26px;
   bottom: 24px;
   color: var(--landing-ink);
@@ -1337,39 +1384,46 @@ body,
 
 @media (max-width: 760px) {
   .landing-hero {
-    min-height: auto;
+    min-height: 100svh;
     grid-template-columns: 1fr;
+    grid-template-rows: 52svh minmax(0, 1fr);
     padding: 8px;
   }
   .landing-art {
     order: -1;
-    min-height: 50svh;
-    background-position: center 58%;
+    min-height: 52svh;
+  }
+  .landing-cinematic {
+    object-position: center;
+  }
+  .landing-art span {
+    display: none;
   }
   .landing-copy {
-    min-height: 58svh;
-    margin-top: -32px;
-    padding: 50px 24px 34px;
-  }
-  .landing-copy::after {
-    width: 75vw;
-    right: -34%;
+    width: 100%;
+    min-height: calc(48svh - 28px);
+    justify-content: center;
+    margin: 0;
+    padding: 22px 24px 20px;
+    background: linear-gradient(145deg, #17131d 0%, #211621 100%);
   }
   .landing-genre {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
+    font-size: 12px;
   }
   .landing-copy h1 span {
-    font-size: clamp(54px, 17vw, 78px);
+    font-size: clamp(46px, 14vw, 64px);
   }
   .landing-copy h1 small {
-    margin-top: 16px;
-    font-size: clamp(25px, 9vw, 40px);
+    margin-top: 10px;
+    font-size: clamp(22px, 7.5vw, 32px);
   }
   .landing-lede {
-    margin-top: 32px;
+    margin: 18px 0 16px;
+    font-size: clamp(17px, 4.8vw, 21px);
   }
   .landing-oath {
-    margin-top: 34px;
+    display: none;
   }
   .class-selection {
     padding: 72px 16px 42px;
@@ -1430,40 +1484,53 @@ body,
 
 @media (min-width: 761px) and (max-width: 1050px) {
   .landing-hero {
-    grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+    grid-template-columns: minmax(350px, 0.9fr) minmax(390px, 1.1fr);
   }
   .landing-copy {
-    padding: 42px;
+    padding: 50px;
   }
   .landing-copy h1 span {
     font-size: clamp(68px, 10vw, 108px);
   }
 }
 
-@keyframes landing-rise {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes landing-sweep {
+  0%, 16% { opacity: 0; transform: translate3d(-18%, 0, 0); }
+  32%, 68% { opacity: 1; }
+  84%, 100% { opacity: 0; transform: translate3d(18%, 0, 0); }
 }
 
-@keyframes landing-drift {
-  from { background-position: center 58%; }
-  to { background-position: center 53%; }
+@keyframes landing-mark-pulse {
+  0%, 100% { opacity: 0.45; transform: scaleX(0.58); }
+  50% { opacity: 1; transform: scaleX(1); }
 }
 
-.landing-copy > * {
-  animation: landing-rise 620ms both;
+@keyframes landing-title-breathe {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(2px, -2px, 0) scale(1.012); }
 }
 
-.landing-copy > :nth-child(2) { animation-delay: 90ms; }
-.landing-copy > :nth-child(3) { animation-delay: 180ms; }
-.landing-copy > :nth-child(4) { animation-delay: 270ms; }
-.landing-copy > :nth-child(5) { animation-delay: 360ms; }
-.landing-art { animation: landing-drift 12s ease-in-out alternate infinite; }
+@keyframes landing-blade-flash {
+  0%, 72%, 100% { opacity: 0; transform: translate3d(-45%, -50%, 0) rotate(-5deg) scaleX(0.18); }
+  78% { opacity: 0.9; }
+  88% { opacity: 0; transform: translate3d(44%, -50%, 0) rotate(-5deg) scaleX(0.7); }
+}
+
+@keyframes landing-action-signal {
+  0%, 55% { opacity: 0; transform: scale(0.96); }
+  72% { opacity: 0.62; }
+  100% { opacity: 0; transform: scale(1.11); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   #title-overlay { scroll-behavior: auto; }
   .landing-copy > *,
-  .landing-art { animation: none; }
+  .landing-copy::before,
+  .landing-copy h1 span,
+  .landing-copy h1::after,
+  .landing-genre::before,
+  .landing-action::after { animation: none; }
+  .landing-cinematic { display: none; }
   .landing-action,
   .dino-card,
   .title-controls .primary-btn { transition: none; }

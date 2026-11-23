@@ -5,6 +5,9 @@ import type { MapPaletteDef, ZoneMap } from '../core/types.ts';
 import { ruinKey, type RuinKind } from './arenaArchitecture.ts';
 import { addEclipseSeal, addEclipseSky } from './eclipseArt.ts';
 import { renderScenarioVisuals } from './scenarioRenderer.ts';
+import { addScenarioSurface, surfaceEdgeDistance } from './scenarioSurfaces.ts';
+import { scenarioStyle } from '../core/scenarioLayouts.ts';
+import { addScenarioDressing } from './scenarioDressing.ts';
 
 export interface MapVisuals {
   tiles: Phaser.GameObjects.Image[];
@@ -29,8 +32,12 @@ export function renderMapVisuals(
   isBossZone = false
 ): MapVisuals {
   // The first three Falla 23 scenarios have their own painted-from-mockup renderer.
+  const style = scenarioStyle(palette.id);
   const scenario = isBossZone ? null : renderScenarioVisuals(scene, zone, palette, hasPortal);
-  if (scenario) return scenario;
+  if (scenario) {
+    if (style) scenario.tiles.push(...addScenarioDressing(scene, zone, style));
+    return scenario;
+  }
   const tiles: Phaser.GameObjects.Image[] = isBossZone ? [addEclipseSky(scene)] : [];
   const props: Phaser.GameObjects.Sprite[] = [];
   const { width, height, floorIndex } = zone;
@@ -81,6 +88,11 @@ export function renderMapVisuals(
       }
 
       const isPath = kind === 'path' || kind === 'portal';
+      const painted = style && addScenarioSurface(scene, style, pos, gx, gy, variant, isPath, surfaceEdgeDistance(gx, gy, isOpen));
+      if (painted) {
+        tiles.push(painted);
+        continue;
+      }
       const frame = isPath
         ? `tile_${zone.biome}_path_${variant}`
         : `tile_${zone.biome}_ground_${variant}`;
@@ -119,5 +131,6 @@ export function renderMapVisuals(
     props.push(sprite);
   }
 
+  if (style) tiles.push(...addScenarioDressing(scene, zone, style));
   return { tiles, props, portal };
 }

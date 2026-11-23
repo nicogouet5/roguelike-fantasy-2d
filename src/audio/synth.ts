@@ -1,6 +1,62 @@
 import type { SfxKind } from '../core/types.ts';
 
-type MusicMode = 'ambient' | 'boss';
+export type MusicMode = 'ambient' | 'boss';
+
+/**
+ * Original score material for Bodoque Hoja-Abisal.  A score cycle is sixteen
+ * bars long (about 38 seconds at 100 BPM), deliberately long enough not to
+ * read as a short UI loop.  Values are semitones relative to the chord root.
+ */
+export const BODOQUE_SCORE = {
+  bpm: 100,
+  barsPerCycle: 16,
+  stepsPerBar: 8,
+  phaseOne: [
+    { root: 38, chord: [0, 3, 7, 14], melody: [14, null, 10, null, 7, null, 3, null] }, // Dm(add9)
+    { root: 34, chord: [0, 4, 7, 11], melody: [11, null, 14, null, 16, null, 14, null] }, // Bbmaj7
+    { root: 29, chord: [0, 4, 7, 14], melody: [12, null, 9, null, 7, null, 4, null] }, // F(add9)/A
+    { root: 36, chord: [0, 2, 7, 14], melody: [14, null, 9, null, 7, null, 2, null] }, // Csus2
+    { root: 38, chord: [0, 3, 7, 14], melody: [14, null, 15, null, 17, null, 14, null] },
+    { root: 39, chord: [0, 4, 7, 11], melody: [11, null, 14, null, 18, null, 14, null] }, // Eb, sacred unease
+    { root: 34, chord: [0, 4, 7, 11], melody: [14, null, 11, null, 7, null, 4, null] },
+    { root: 45, chord: [0, 4, 7, 10], melody: [10, null, 7, null, 4, null, 1, null] }, // A7, held tension
+    { root: 38, chord: [0, 3, 7, 14], melody: [14, null, 10, null, 7, null, 10, null] },
+    { root: 34, chord: [0, 4, 7, 11], melody: [16, null, 14, null, 11, null, 14, null] },
+    { root: 29, chord: [0, 4, 7, 14], melody: [12, null, 16, null, 19, null, 16, null] },
+    { root: 36, chord: [0, 2, 7, 14], melody: [14, null, 12, null, 9, null, 7, null] },
+    { root: 38, chord: [0, 3, 7, 14], melody: [14, null, 17, null, 15, null, 14, null] },
+    { root: 39, chord: [0, 4, 7, 11], melody: [18, null, 16, null, 14, null, 11, null] },
+    { root: 34, chord: [0, 4, 7, 11], melody: [14, null, 16, null, 18, null, 14, null] },
+    { root: 45, chord: [0, 4, 7, 10], melody: [13, null, 10, null, 7, null, 4, null] },
+  ],
+  phaseTwo: [
+    { root: 38, chord: [0, 3, 7, 13], melody: [13, 14, null, 10, null, 17, 14, null] },
+    { root: 39, chord: [0, 4, 7, 11], melody: [14, null, 18, null, 16, 14, null, 11] },
+    { root: 34, chord: [0, 4, 7, 11], melody: [16, null, 14, 11, null, 14, 16, null] },
+    { root: 45, chord: [0, 4, 7, 10], melody: [13, null, 10, 7, null, 4, 7, null] },
+    { root: 38, chord: [0, 3, 7, 14], melody: [17, null, 14, 15, null, 17, 19, null] },
+    { root: 39, chord: [0, 4, 7, 11], melody: [18, 16, null, 14, 11, null, 14, 16] },
+    { root: 34, chord: [0, 4, 7, 11], melody: [19, null, 16, 14, null, 11, 14, null] },
+    { root: 45, chord: [0, 4, 7, 10], melody: [17, null, 13, 10, 7, null, 4, null] },
+    { root: 38, chord: [0, 3, 7, 13], melody: [13, 14, null, 17, 14, null, 10, 14] },
+    { root: 39, chord: [0, 4, 7, 11], melody: [18, null, 16, 14, null, 18, 16, null] },
+    { root: 34, chord: [0, 4, 7, 11], melody: [16, 14, null, 11, 14, null, 16, 18] },
+    { root: 45, chord: [0, 4, 7, 10], melody: [17, null, 13, 10, 7, 10, null, 13] },
+    { root: 38, chord: [0, 3, 7, 14], melody: [21, null, 19, 17, null, 14, 17, null] },
+    { root: 39, chord: [0, 4, 7, 11], melody: [18, 16, null, 14, 16, null, 18, 21] },
+    { root: 34, chord: [0, 4, 7, 11], melody: [19, null, 18, 16, 14, null, 16, null] },
+    { root: 45, chord: [0, 4, 7, 10], melody: [17, null, 13, 10, 7, null, 4, null] },
+  ],
+} as const;
+
+type ScoreBar = {
+  root: number;
+  chord: readonly number[];
+  melody: readonly (number | null)[];
+};
+
+const MUSIC_TICK_MS = 300;
+const hzFromMidi = (midi: number): number => 440 * 2 ** ((midi - 69) / 12);
 
 interface SfxBankEntry {
   files: string[];
@@ -163,6 +219,7 @@ class DinoAudioManager {
   private musicTimer: number | null = null;
   private musicStep = 0;
   private musicMode: MusicMode = 'ambient';
+  private bossPhase: 1 | 2 = 1;
   private master: GainNode | null = null;
   private musicBus: GainNode | null = null;
   private sfxBus: GainNode | null = null;
@@ -215,8 +272,19 @@ class DinoAudioManager {
   }
 
   setMusicMode(mode: MusicMode): void {
-    if (this.musicMode === mode) return;
+    // GameScene calls this when the final map loads and calls it once more for
+    // the existing `boss_phase` event.  Keeping this behaviour here means the
+    // score can grow at phase two without coupling audio to combat internals.
+    if (this.musicMode === mode) {
+      if (mode === 'boss' && this.bossPhase === 1) {
+        this.bossPhase = 2;
+        this.musicStep = 0;
+        if (!this.muted && this.ctx?.state === 'running') this.playBossPhaseSting();
+      }
+      return;
+    }
     this.musicMode = mode;
+    this.bossPhase = 1;
     this.musicStep = 0;
     if (!this.muted && this.ctx?.state === 'running') this.playModeSting(mode);
   }
@@ -386,7 +454,9 @@ class DinoAudioManager {
     compressor.attack.value = 0.004;
     compressor.release.value = 0.18;
     this.musicBus = this.ctx.createGain();
-    this.musicBus.gain.value = 0.34;
+    // The score can carry several synthesized voices at once; leave ample
+    // headroom for combat SFX before the final master compressor.
+    this.musicBus.gain.value = 0.26;
     this.sfxBus = this.ctx.createGain();
     this.sfxBus.gain.value = 0.9;
     this.musicBus.connect(this.master);
@@ -473,7 +543,7 @@ class DinoAudioManager {
 
   private startMusic(): void {
     if (typeof window === 'undefined' || this.musicTimer !== null) return;
-    this.musicTimer = window.setInterval(() => this.tickMusic(), 360);
+    this.musicTimer = window.setInterval(() => this.tickMusic(), MUSIC_TICK_MS);
     this.tickMusic();
   }
 
@@ -494,10 +564,178 @@ class DinoAudioManager {
   }
 
   private tickBossMusic(step: number): void {
-    const note = [73.42, 82.41, 87.31, 73.42, 65.41, 73.42, 98, 87.31][step % 8]!;
-    this.sweep(note, note * 0.985, 0.22, 'sawtooth', 0.038, 0, true);
-    if (step % 4 === 0) this.sweep(note * 0.5, 36, 0.28, 'triangle', 0.048, 0, true);
-    if (step % 8 === 4) this.sweep(note * 2, note * 1.99, 0.36, 'triangle', 0.018, 0.04, true);
+    const phrase = this.bossPhase === 2 ? BODOQUE_SCORE.phaseTwo : BODOQUE_SCORE.phaseOne;
+    const stepInBar = step % BODOQUE_SCORE.stepsPerBar;
+    const bar = phrase[Math.floor(step / BODOQUE_SCORE.stepsPerBar) % phrase.length]!;
+    const root = hzFromMidi(bar.root);
+    const phaseTwo = this.bossPhase === 2;
+
+    if (stepInBar === 0) {
+      // The pad, bowed strings and vowel-formant choir establish a real
+      // harmonic cadence, rather than a single repeated drone.
+      this.playSacredPad(bar, phaseTwo ? 2.7 : 2.45, phaseTwo ? 0.021 : 0.017);
+      this.playChoir(bar, phaseTwo ? 2.35 : 2.15, phaseTwo ? 0.016 : 0.013);
+      this.playBass(root, phaseTwo ? 0.58 : 0.5, phaseTwo ? 0.047 : 0.035);
+      this.playWarDrum(root, phaseTwo ? 0.11 : 0.075);
+    }
+
+    if (stepInBar === 4) {
+      this.playBass(root, phaseTwo ? 0.46 : 0.38, phaseTwo ? 0.037 : 0.027);
+      this.playWarDrum(root * 0.76, phaseTwo ? 0.075 : 0.048);
+    }
+
+    const melody = bar.melody[stepInBar] ?? null;
+    if (melody !== null) {
+      const note = hzFromMidi(bar.root + melody + 12);
+      this.playString(note, phaseTwo ? 0.3 : 0.38, phaseTwo ? 0.019 : 0.014);
+      if (phaseTwo && stepInBar % 2 === 0) this.playChoirNote(note * 0.5, 0.6, 0.008, 0.04);
+    }
+
+    if (phaseTwo) {
+      // Phase two adds a restrained taiko subdivision and low choral pedal;
+      // it raises stakes without masking attacks or becoming a harsh drone.
+      if (stepInBar === 2 || stepInBar === 6) this.playWarDrum(root * 0.62, 0.046);
+      const middleInterval = bar.chord[1];
+      if (stepInBar % 2 === 0 && middleInterval !== undefined) {
+        this.playString(hzFromMidi(bar.root + middleInterval + 12), 0.19, 0.011);
+      }
+      if (stepInBar === 0) this.playChoirNote(root * 0.5, 2.1, 0.012, 0.02);
+    }
+  }
+
+  /** Soft, detuned low-passed oscillators suggest bowed strings without samples. */
+  private playSacredPad(bar: ScoreBar, duration: number, volume: number): void {
+    for (const interval of bar.chord.slice(0, 3)) {
+      if (interval === undefined) continue;
+      const freq = hzFromMidi(bar.root + interval + 12);
+      this.playFilteredTone(freq, duration, volume, 'sawtooth', -5, 1450, 0.16);
+      this.playFilteredTone(freq, duration * 0.96, volume * 0.7, 'triangle', 5, 1050, 0.2, 0.035);
+    }
+  }
+
+  /** Formant-filtered synthesized vowel layer: an original ethereal choir. */
+  private playChoir(bar: ScoreBar, duration: number, volume: number): void {
+    for (const interval of [bar.chord[0], bar.chord[1], bar.chord[3]]) {
+      if (interval === undefined) continue;
+      this.playChoirNote(hzFromMidi(bar.root + interval + 24), duration, volume);
+    }
+  }
+
+  private playChoirNote(freq: number, duration: number, volume: number, delay = 0): void {
+    const graph = this.getGraph();
+    if (!graph) return;
+    const now = graph.ctx.currentTime + delay;
+    const source = graph.ctx.createOscillator();
+    const sourceGain = graph.ctx.createGain();
+    const dry = graph.ctx.createGain();
+    const formantA = graph.ctx.createBiquadFilter();
+    const formantB = graph.ctx.createBiquadFilter();
+    const formantAGain = graph.ctx.createGain();
+    const formantBGain = graph.ctx.createGain();
+    const output = graph.ctx.createGain();
+
+    source.type = 'triangle';
+    source.frequency.setValueAtTime(freq, now);
+    source.detune.value = -3;
+    formantA.type = 'bandpass';
+    formantA.frequency.value = 760;
+    formantA.Q.value = 2.2;
+    formantB.type = 'bandpass';
+    formantB.frequency.value = 1180;
+    formantB.Q.value = 2.8;
+    dry.gain.value = 0.28;
+    formantAGain.gain.value = 0.38;
+    formantBGain.gain.value = 0.24;
+    const release = Math.min(0.5, duration * 0.3);
+    output.gain.setValueAtTime(0.0001, now);
+    output.gain.exponentialRampToValueAtTime(volume, now + Math.min(0.16, duration * 0.2));
+    output.gain.setTargetAtTime(0.0001, now + duration - release, release / 4);
+
+    source.connect(sourceGain);
+    sourceGain.connect(dry);
+    sourceGain.connect(formantA);
+    sourceGain.connect(formantB);
+    dry.connect(output);
+    formantA.connect(formantAGain);
+    formantB.connect(formantBGain);
+    formantAGain.connect(output);
+    formantBGain.connect(output);
+    output.connect(graph.musicBus);
+    source.start(now);
+    source.stop(now + duration + 0.08);
+  }
+
+  private playFilteredTone(
+    freq: number,
+    duration: number,
+    volume: number,
+    type: OscillatorType,
+    detune: number,
+    cutoff: number,
+    attack: number,
+    delay = 0
+  ): void {
+    const graph = this.getGraph();
+    if (!graph) return;
+    const now = graph.ctx.currentTime + delay;
+    const source = graph.ctx.createOscillator();
+    const filter = graph.ctx.createBiquadFilter();
+    const gain = graph.ctx.createGain();
+    source.type = type;
+    source.frequency.setValueAtTime(freq, now);
+    source.detune.value = detune;
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(cutoff, now);
+    filter.Q.value = 0.7;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(volume, now + Math.min(attack, duration * 0.3));
+    gain.gain.setTargetAtTime(0.0001, now + duration * 0.62, Math.max(0.08, duration * 0.18));
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(graph.musicBus);
+    source.start(now);
+    source.stop(now + duration + 0.08);
+  }
+
+  private playString(freq: number, duration: number, volume: number): void {
+    this.playFilteredTone(freq, duration, volume, 'sawtooth', 0, 2100, 0.025);
+    this.playFilteredTone(freq * 2, duration * 0.75, volume * 0.24, 'triangle', 4, 2600, 0.018, 0.012);
+  }
+
+  private playBass(freq: number, duration: number, volume: number): void {
+    this.playFilteredTone(freq * 0.5, duration, volume, 'triangle', 0, 320, 0.018);
+    this.playFilteredTone(freq * 0.25, duration * 0.84, volume * 0.4, 'sine', 0, 180, 0.012, 0.01);
+  }
+
+  private playWarDrum(freq: number, volume: number): void {
+    const graph = this.getGraph();
+    if (!graph || !this.noiseBuffer) return;
+    const now = graph.ctx.currentTime;
+    const kick = graph.ctx.createOscillator();
+    const kickGain = graph.ctx.createGain();
+    const skin = graph.ctx.createBufferSource();
+    const skinFilter = graph.ctx.createBiquadFilter();
+    const skinGain = graph.ctx.createGain();
+    kick.type = 'sine';
+    kick.frequency.setValueAtTime(Math.max(42, freq), now);
+    kick.frequency.exponentialRampToValueAtTime(42, now + 0.18);
+    kickGain.gain.setValueAtTime(volume, now);
+    kickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.27);
+    skin.buffer = this.noiseBuffer;
+    skinFilter.type = 'lowpass';
+    skinFilter.frequency.value = 680;
+    skinFilter.Q.value = 0.8;
+    skinGain.gain.setValueAtTime(volume * 0.3, now);
+    skinGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    kick.connect(kickGain);
+    kickGain.connect(graph.musicBus);
+    skin.connect(skinFilter);
+    skinFilter.connect(skinGain);
+    skinGain.connect(graph.musicBus);
+    kick.start(now);
+    skin.start(now);
+    kick.stop(now + 0.3);
+    skin.stop(now + 0.14);
   }
 
   private playModeSting(mode: MusicMode): void {
@@ -507,6 +745,15 @@ class DinoAudioManager {
     } else {
       this.sweep(110, 146.83, 0.32, 'sine', 0.04, 0, true);
     }
+  }
+
+  private playBossPhaseSting(): void {
+    // A calm choral rise makes the transition legible before the denser
+    // percussion arrives on the following bar.
+    this.playChoirNote(hzFromMidi(50), 1.4, 0.026);
+    this.playChoirNote(hzFromMidi(57), 1.2, 0.02, 0.12);
+    this.playChoirNote(hzFromMidi(62), 1.0, 0.018, 0.24);
+    this.playWarDrum(hzFromMidi(38), 0.09);
   }
 
   private stopMusic(): void {

@@ -287,6 +287,9 @@ export class GameHud {
             <p class="landing-oath">Sobrevive a las oleadas. Forja tu build. Desafía al Hoja-Abisal.</p>
           </div>
           <div class="landing-art" role="img" aria-label="Guerreros dinosaurio frente al Spinosaurus Hoja-Abisal en un reino en ruinas">
+            <video class="landing-cinematic" autoplay muted loop playsinline preload="auto" poster="/landing/concept-art-dark-fantasy.jpg" aria-hidden="true">
+              <source src="/landing/dinolike-landing.mp4" type="video/mp4" />
+            </video>
             <span>La Falla 23 aguarda</span>
           </div>
         </section>
@@ -337,6 +340,13 @@ export class GameHud {
       this.titleEl.querySelector('#class-selection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
+    const cinematic = this.titleEl.querySelector<HTMLVideoElement>('.landing-cinematic');
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      cinematic?.pause();
+    } else {
+      void cinematic?.play().catch(() => undefined);
+    }
+
     this.titleEl.querySelectorAll<HTMLButtonElement>('.dino-card').forEach((btn) => {
       btn.addEventListener('click', () => {
         audioManager.unlock();
@@ -376,6 +386,7 @@ export class GameHud {
 
   hideTitle(): void {
     this.stopPreviewAnim();
+    this.titleEl.querySelector<HTMLVideoElement>('.landing-cinematic')?.pause();
     this.titleEl.style.display = 'none';
     this.hudLayer.style.display = 'block';
     this.statsOpen = false;

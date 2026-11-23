@@ -84,7 +84,7 @@ function warpRows(base: HTMLCanvasElement, footY: number, torsoHeight: number, s
 }
 
 const BOSS_FOOT_Y = 81;
-const BOSS_HEIGHT = 62;
+const BOSS_HEIGHT = 78; // Includes the tips of Bodoque’s ears.
 
 /** Animates the authored 96px codex boss portrait (static source) with the shared mob motion grammar. */
 export function bossSheetFrame(source: HTMLCanvasElement, pose: AnimPose, frame: number): HTMLCanvasElement {

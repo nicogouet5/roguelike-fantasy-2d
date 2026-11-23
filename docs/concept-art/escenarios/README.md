@@ -15,6 +15,14 @@ La partida avanza automáticamente al completar las oleadas de cada zona.
 | 3 | `fortaleza_falla_23` (64×64) | `Falla_23_Arena_Isometrica_Mockup.png` | Fortaleza Falla 23, dominante azul acero y coral: camino procesional coral desde el antepatio sur, por la gran plaza, hasta el portón «23»; un camino cruzado enlaza los patios oeste y este, con lagos de lava al norte. |
 | 4 | `canon_dinoblade` | `Falla_23_Osario_Hundido_Mockup.png` | Osario Hundido: arena octogonal final del Espinosaurio. |
 
+## Texturas extraídas de las imágenes
+
+`src/assets/scenario-surfaces/` contiene cuatro atlas de losetas (16 variantes de
+piedra y 16 de ruta por escenario). Se toman muestras de los pisos de los mockups,
+sin personajes ni arquitectura de fondo. El render aplica sombra cerca de los
+bordes y un rebote cálido en los escenarios de lava sin cambiar las colisiones.
+Para regenerarlas: `python3 scripts/bake-scenario-surfaces.py '/ruta/a/Escenario'`.
+
 ## Reglas de los layouts
 
 - Cada piso mezcla losas (`ground`) con rutas (`path`) de otro material: adoquín ámbar,
