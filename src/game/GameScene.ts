@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
-import { ANIM_COUNTS, ATLAS_KEY, buildPixelAtlas, getDinoFrameName } from '../assets/pixelArt.ts';
+import { ANIM_COUNTS, ATLAS_KEY, buildPixelAtlas, clearDinoPreviewCache, getDinoFrameName, type AnimPose } from '../assets/pixelArt.ts';
+import { codexBodyMotion } from '../assets/actorMotion.ts';
+import { preloadCodexArt, registerCodexArt } from '../assets/codexArt.ts';
+import { buildArenaArchitecture } from './arenaArchitecture.ts';
 import { audioManager } from '../audio/synth.ts';
 import { buyAmberOffer, pickBoon, rerollOffer, skipOffer } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
@@ -9,6 +12,8 @@ import { gridToScreen, ISO_TILE_WIDTH, screenToGrid } from '../core/iso.ts';
 import { cast, findNearestMob } from '../core/skills.ts';
 import type { ElementName, GameState } from '../core/types.ts';
 import type { GameHud } from './hud.ts';
+import { renderMapVisuals } from './mapRenderer.ts';
+import { drawTriceratopsHornGrowth } from './triceratopsHorns.ts';
 import {
   AfterimagePool,
   DamageTextPool,
@@ -58,6 +63,7 @@ export class GameScene extends Phaser.Scene {
 
   private playerSprite: Phaser.GameObjects.Sprite | null = null;
   private playerShadow: Phaser.GameObjects.Ellipse | null = null;
+  private triceratopsHornGrowth: Phaser.GameObjects.Graphics | null = null;
   private petSprite: Phaser.GameObjects.Sprite | null = null;
   private petShadow: Phaser.GameObjects.Ellipse | null = null;
   private mobVisuals = new Map<string, MobVisual>();
@@ -89,9 +95,16 @@ export class GameScene extends Phaser.Scene {
     this.hud = hud;
   }
 
+  preload(): void {
+    preloadCodexArt(this);
+  }
+
   create(): void {
     this.gameData = loadGameData();
+    registerCodexArt(this);
+    clearDinoPreviewCache();
     buildPixelAtlas(this);
+    buildArenaArchitecture(this);
 
     this.particles = new ParticlePool(this, 100);
     this.damageText = new DamageTextPool(this, 48);
@@ -268,6 +281,8 @@ export class GameScene extends Phaser.Scene {
     this.playerSprite = null;
     this.playerShadow?.destroy();
     this.playerShadow = null;
+    this.triceratopsHornGrowth?.destroy();
+    this.triceratopsHornGrowth = null;
     this.petSprite?.destroy();
     this.petSprite = null;
     this.petShadow?.destroy();
@@ -299,48 +314,20 @@ export class GameScene extends Phaser.Scene {
 
     const zone = this.state.zone;
     const mapDef = this.gameData.mapsByFloor[zone.floorIndex]!;
-    this.cameras.main.setBackgroundColor(mapDef.bgColor);
-
-    // Draw isometric pixel tiles
-    for (let gy = 0; gy < zone.height; gy++) {
-      for (let gx = 0; gx < zone.width; gx++) {
-        const idx = gy * zone.width + gx;
-        const kind = zone.tiles[idx]!;
-        const variant = zone.variants[idx] ?? 0;
-        const pos = gridToScreen(gx + 0.5, gy + 0.5);
-
-        if (kind === 'wall') {
-          const wall = this.add.image(pos.x, pos.y - 8, ATLAS_KEY, `tile_${zone.biome}_wall`);
-          wall.setDepth(pos.y - 4);
-          this.tileGroup.push(wall);
-        } else {
-          const tileFrame =
-            kind === 'path' || kind === 'portal'
-              ? `tile_${zone.biome}_path_${variant}`
-              : `tile_${zone.biome}_ground_${variant}`;
-          const img = this.add.image(pos.x, pos.y, ATLAS_KEY, tileFrame);
-          img.setDepth(-1000 + pos.y * 0.01);
-          this.tileGroup.push(img);
-        }
-      }
-    }
-
-    // Portal pad (only in non-final floors)
-    if (zone.floorIndex < this.gameData.mapsByFloor.length - 1) {
-      const pPos = gridToScreen(zone.portal.x, zone.portal.y);
-      this.portalSprite = this.add.sprite(pPos.x, pPos.y, ATLAS_KEY, 'fx_portal');
-      this.portalSprite.setDepth(pPos.y - 12);
-      this.portalSprite.setAlpha(0.25);
-    }
-
-    // Prehistoric Props
-    for (const prop of zone.props) {
-      const pPos = gridToScreen(prop.x, prop.y);
-      const sp = this.add.sprite(pPos.x, pPos.y - 14, ATLAS_KEY, `prop_${prop.kind}`);
-      sp.setOrigin(0.5, 0.85);
-      sp.setDepth(pPos.y);
-      this.propSprites.push(sp);
-    }
+    const isBossZone = Boolean(mapDef.bossId);
+    audioManager.setMusicMode(isBossZone ? 'boss' : 'ambient');
+    if (isBossZone) audioManager.play('roar');
+    const palette = this.gameData.mapPalettesById[mapDef.paletteId]!;
+    this.cameras.main.setBackgroundColor(palette.background);
+    const mapVisuals = renderMapVisuals(
+      this,
+      zone,
+      palette,
+      zone.floorIndex < this.gameData.mapsByFloor.length - 1
+    );
+    this.tileGroup = mapVisuals.tiles;
+    this.propSprites = mapVisuals.props;
+    this.portalSprite = mapVisuals.portal;
 
     // Player shadow + sprite (crisp 96x96 multi-frame pixel art)
     const cls = this.gameData.classesById[this.state.player.classId]!;
@@ -351,6 +338,7 @@ export class GameScene extends Phaser.Scene {
     this.playerSprite.setOrigin(0.5, 0.84);
     this.playerSprite.setScale(0.96);
     this.playerSprite.setDepth(plPos.y);
+    this.triceratopsHornGrowth = this.add.graphics();
 
     // Floating Codex Pet companion
     const petPos = gridToScreen(this.state.pet.x, this.state.pet.y);
@@ -477,6 +465,7 @@ export class GameScene extends Phaser.Scene {
           if (ev.heavy) {
             this.cameras.main.shake(140, 0.0065);
           }
+          audioManager.playImpact(ev.heavy);
           break;
         }
         case 'notice': {
@@ -489,6 +478,8 @@ export class GameScene extends Phaser.Scene {
           break;
         case 'boss_phase':
           this.cameras.main.shake(320, 0.012);
+          audioManager.setMusicMode('boss');
+          audioManager.play('boss_phase');
           break;
         case 'dash_trail': {
           const flipX = ev.toX - ev.fromX - (ev.toY - ev.fromY) < 0;
@@ -542,6 +533,8 @@ export class GameScene extends Phaser.Scene {
     const isMoving = speedMag > 0.15;
 
     let frameKey: string;
+    let pose: AnimPose;
+    let poseFrame: number;
     let sx = 0.96;
     let sy = 0.96;
 
@@ -549,7 +542,9 @@ export class GameScene extends Phaser.Scene {
       const total = Math.max(120, player.attackAnimDurationMs || 340);
       const progress = Math.max(0, Math.min(0.999, 1 - player.attackAnimMs / total));
       const atkFrame = Math.floor(progress * ANIM_COUNTS.atk);
-      frameKey = getDinoFrameName(cls.spriteId, 'atk', atkFrame);
+      pose = 'atk';
+      poseFrame = atkFrame;
+      frameKey = getDinoFrameName(cls.spriteId, pose, poseFrame);
       // Punchy anticipation squash on windup, stretch on impact peak
       if (atkFrame === 0) {
         sx = 1.03;
@@ -561,18 +556,24 @@ export class GameScene extends Phaser.Scene {
     } else if (isMoving) {
       this.playerWalkPhase = (this.playerWalkPhase + dtSec * (2.6 * speedMag)) % ANIM_COUNTS.walk;
       const walkIdx = Math.floor(this.playerWalkPhase);
-      frameKey = getDinoFrameName(cls.spriteId, 'walk', walkIdx);
+      pose = 'walk';
+      poseFrame = walkIdx;
+      frameKey = getDinoFrameName(cls.spriteId, pose, poseFrame);
       // Subtle stride stretch & contact dust puffs on footfall frames 1 and 4
       const strideBounce = Math.sin((this.playerWalkPhase / ANIM_COUNTS.walk) * Math.PI * 2);
-      sx = 0.96 + Math.abs(strideBounce) * 0.035;
-      sy = 0.96 - Math.abs(strideBounce) * 0.035;
+      if (cls.id === 'velociraptor' || cls.id === 'pteranodon') {
+        sx = 0.96 + Math.abs(strideBounce) * 0.035;
+        sy = 0.96 - Math.abs(strideBounce) * 0.035;
+      }
       if ((walkIdx === 1 || walkIdx === 4) && walkIdx !== this.lastPlayerStepIdx && cls.id !== 'pteranodon') {
         this.particles.dustPuff(pScreen.x, pScreen.y + 4);
       }
       this.lastPlayerStepIdx = walkIdx;
     } else {
       const idleIdx = Math.floor((this.animClockMs / 210) % ANIM_COUNTS.idle);
-      frameKey = getDinoFrameName(cls.spriteId, 'idle', idleIdx);
+      pose = 'idle';
+      poseFrame = idleIdx;
+      frameKey = getDinoFrameName(cls.spriteId, pose, poseFrame);
       this.lastPlayerStepIdx = -1;
     }
 
@@ -587,6 +588,21 @@ export class GameScene extends Phaser.Scene {
     this.playerSprite.setScale(sx, sy);
     this.playerSprite.setPosition(pScreen.x, pScreen.y - leapLift);
     this.playerSprite.setDepth(pScreen.y + 4);
+    if (cls.id === 'triceratops' && this.triceratopsHornGrowth) {
+      drawTriceratopsHornGrowth(
+        this.triceratopsHornGrowth,
+        player.level,
+        pScreen.x,
+        pScreen.y - leapLift,
+        this.playerSprite.flipX,
+        sx,
+        sy,
+        pScreen.y + 4,
+        codexBodyMotion(pose, poseFrame)
+      );
+    } else {
+      this.triceratopsHornGrowth?.clear();
+    }
     this.playerShadow.setPosition(pScreen.x, pScreen.y + 5);
     this.playerShadow.setScale(Math.max(0.55, 1 - leapLift * 0.01));
     this.playerShadow.setDepth(pScreen.y - 2);

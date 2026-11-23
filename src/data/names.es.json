@@ -12,7 +12,7 @@
     "Venom": "Veneno"
   },
   "weapons": {
-    "greatsword": "Espadón Gigante",
+    "greatsword": "Mandoble Colosal de Hierro",
     "katana": "Katanas Dobles",
     "shield_lance": "Cuernos-Lanza y Escudo",
     "amber_staff": "Báculo de Mago",
@@ -56,7 +56,7 @@
     }
   },
   "skills": {
-    "rex_cleave_basic": { "name": "Tajo de Fauces", "desc": "Barrido pesado con el espadón." },
+    "rex_cleave_basic": { "name": "Barrido de Fauces", "desc": "Gira la cabeza y barre un arco amplio con el mandoble de hierro sujeto entre los dientes." },
     "rex_colossal_slash": { "name": "Tajo Colosal", "desc": "Arco ardiente de 165° que empuja y parte a múltiples enemigos." },
     "rex_jaw_leap": { "name": "Salto Mandíbula", "desc": "Salta sobre el objetivo y aplasta el terreno con el espadón, aturdiendo en área." },
     "rex_tyrant_roar": { "name": "Rugido Tirano", "desc": "Rugido explosivo que aturde alrededor y potencia tu ATK por 6 s." },

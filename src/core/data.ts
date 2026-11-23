@@ -3,6 +3,7 @@ import boonsJson from '../data/boons.json';
 import classesJson from '../data/classes.json';
 import elementsJson from '../data/elements.json';
 import mapsJson from '../data/maps.json';
+import mapPalettesJson from '../data/mapPalettes.json';
 import mobsJson from '../data/mobs.json';
 import namesEsJson from '../data/names.es.json';
 import relicsJson from '../data/relics.json';
@@ -13,6 +14,7 @@ import type {
   DinoClassDef,
   ElementName,
   MapDef,
+  MapPaletteDef,
   MobDef,
   RelicDef,
   SkillDef,
@@ -191,6 +193,12 @@ const mapSchema = z.object({
   id: z.string().min(1),
   floorIndex: z.number().int().nonnegative(),
   biome: biomeEnum,
+  paletteId: z.enum([
+    'fortaleza_acero_coral',
+    'claustro_jade_ambar',
+    'puente_violeta_cobre',
+    'osario_hueso_petroleo',
+  ]),
   width: z.number().int().min(16),
   height: z.number().int().min(16),
   targetKills: z.number().int().positive(),
@@ -200,6 +208,23 @@ const mapSchema = z.object({
   bossId: z.string().optional(),
   mobs: z.array(z.object({ mobId: z.string().min(1), weight: z.number().positive() })).min(1),
 });
+
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected an opaque #RRGGBB color');
+
+const mapPaletteSchema = z.object({
+  id: z.enum([
+    'fortaleza_acero_coral',
+    'claustro_jade_ambar',
+    'puente_violeta_cobre',
+    'osario_hueso_petroleo',
+  ]),
+  background: hexColor,
+  groundTint: hexColor,
+  pathTint: hexColor,
+  wallTint: hexColor,
+  propTint: hexColor,
+  portalTint: hexColor,
+}).strict();
 
 const boonSchema = z.object({
   id: z.string().min(1),
@@ -267,6 +292,7 @@ export interface GameData {
   mobsById: Record<string, MobDef>;
   maps: MapDef[];
   mapsByFloor: MapDef[];
+  mapPalettesById: Record<string, MapPaletteDef>;
   boons: BoonDef[];
   boonsById: Record<string, BoonDef>;
   relics: RelicDef[];
@@ -284,6 +310,7 @@ export function loadGameData(): GameData {
   const skills = z.array(skillSchema).min(15).parse(skillsJson) as SkillDef[];
   const mobs = z.array(mobSchema).min(5).parse(mobsJson) as MobDef[];
   const maps = z.array(mapSchema).min(3).parse(mapsJson) as MapDef[];
+  const mapPalettes = z.array(mapPaletteSchema).min(4).parse(mapPalettesJson) as MapPaletteDef[];
   const boons = z.array(boonSchema).min(10).parse(boonsJson) as BoonDef[];
   const relics = z.array(relicSchema).min(5).parse(relicsJson) as RelicDef[];
   const names = namesSchema.parse(namesEsJson);
@@ -294,6 +321,7 @@ export function loadGameData(): GameData {
   const boonsById = Object.fromEntries(boons.map((b) => [b.id, b]));
   const relicsById = Object.fromEntries(relics.map((r) => [r.id, r]));
   const mapsByFloor = [...maps].sort((a, b) => a.floorIndex - b.floorIndex);
+  const mapPalettesById = Object.fromEntries(mapPalettes.map((palette) => [palette.id, palette]));
 
   // Cross-reference integrity checks
   for (const cls of classes) {
@@ -316,6 +344,9 @@ export function loadGameData(): GameData {
   }
   for (const map of maps) {
     if (!names.maps[map.id]) throw new Error(`Missing Spanish name for map ${map.id}`);
+    if (!mapPalettesById[map.paletteId]) {
+      throw new Error(`Missing paletteId ${map.paletteId} for map ${map.id}`);
+    }
     if (map.bossId && !mobsById[map.bossId]) {
       throw new Error(`Missing bossId ${map.bossId} for map ${map.id}`);
     }
@@ -344,6 +375,7 @@ export function loadGameData(): GameData {
     mobsById,
     maps,
     mapsByFloor,
+    mapPalettesById,
     boons,
     boonsById,
     relics,

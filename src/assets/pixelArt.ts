@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import type { BiomeId } from '../core/types.ts';
+import { codexFrame } from './codexArt.ts';
 
 export const ATLAS_KEY = 'dino_atlas';
 
@@ -81,6 +82,25 @@ class PixelGrid {
       const row = py * this.w;
       for (let px = x0; px < x1; px++) {
         this.buf[row + px] = col;
+      }
+    }
+  }
+
+  polygon(points: readonly (readonly [number, number])[], col: number): void {
+    for (let y = 0; y < this.h; y++) {
+      const intersections: number[] = [];
+      const scan = y + 0.5;
+      points.forEach(([x0, y0], i) => {
+        const [x1, y1] = points[(i + 1) % points.length]!;
+        if ((y0 <= scan && scan < y1) || (y1 <= scan && scan < y0)) {
+          intersections.push(x0 + (scan - y0) * (x1 - x0) / (y1 - y0));
+        }
+      });
+      intersections.sort((a, b) => a - b);
+      for (let i = 0; i + 1 < intersections.length; i += 2) {
+        const a = Math.max(0, Math.ceil(intersections[i]! - 0.5));
+        const b = Math.min(this.w, Math.ceil(intersections[i + 1]! - 0.5));
+        for (let x = a; x < b; x++) this.buf[y * this.w + x] = col;
       }
     }
   }
@@ -359,8 +379,52 @@ const C_SCARF_M = hexToU32('#dc2626');
 const C_WOOD_M = hexToU32('#78350f');
 
 /* ============================================================================
- * 1. T-REX — COLOSSAL BUSTER GREATSWORD (48×48 logical → 96×96 crisp)
+ * 1. T-REX — COLOSSAL IRON BUSTER BLADE (48×48 logical → 96×96 crisp)
  * ========================================================================== */
+/**
+ * A deliberately plain, original slab-blade: dark forged iron, clipped point,
+ * and a short leather grip.  The grip is the anchor in the T-Rex's mouth;
+ * every attack pose rotates the same weapon around that point.
+ */
+function drawRexMouthBlade(
+  g: PixelGrid,
+  gripX: number,
+  gripY: number,
+  tipX: number,
+  tipY: number,
+  bright = C_STEEL_L
+): void {
+  const dx = tipX - gripX;
+  const dy = tipY - gripY;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const nx = -uy;
+  const ny = ux;
+
+  // Leather-wrapped handle protrudes only a little past the jaws.
+  g.line(gripX - ux * 3.1, gripY - uy * 3.1, gripX + ux * 0.8, gripY + uy * 0.8, C_WOOD_M, 1.15);
+  g.px(gripX - ux * 3.6, gripY - uy * 3.6, C_GOLD_D); // square iron pommel
+  // Stark crossguard: practical, not ornamental.
+  g.line(gripX + nx * 3.1, gripY + ny * 3.1, gripX - nx * 3.1, gripY - ny * 3.1, C_STEEL_D, 1.0);
+  g.line(gripX + nx * 2.0, gripY + ny * 2.0, gripX - nx * 2.0, gripY - ny * 2.0, C_STEEL_M, 0.45);
+
+  // Broad at the ricasso and still brutally wide at the clipped point.
+  const bladeStartX = gripX + ux * 1.2;
+  const bladeStartY = gripY + uy * 1.2;
+  const bodyTipX = tipX - ux * 1.8;
+  const bodyTipY = tipY - uy * 1.8;
+  g.blade(bladeStartX, bladeStartY, bodyTipX, bodyTipY, 6.2, 3.4, C_STEEL_D, C_STEEL_M, bright);
+  g.taper(bodyTipX, bodyTipY, 2.15, tipX, tipY, 0.55, C_STEEL_D);
+  g.line(bladeStartX + nx * 0.45, bladeStartY + ny * 0.45, bodyTipX + nx * 0.35, bodyTipY + ny * 0.35, C_STEEL_L, 0.42);
+
+  // A pair of forge notches makes the silhouette read as a battle-worn iron slab.
+  const notchA = 0.35;
+  const notchB = 0.56;
+  g.px(gripX + dx * notchA + nx * 3.0, gripY + dy * notchA + ny * 3.0, C_STEEL_D);
+  g.px(gripX + dx * notchB - nx * 2.4, gripY + dy * notchB - ny * 2.4, C_STEEL_D);
+}
+
 function drawTRexFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   const g = new PixelGrid(48, 48);
   const m = getMotion(pose, frame);
@@ -455,44 +519,36 @@ function drawTRexFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   g.px(headX + 2, headY - 2, hexToU32('#7f1d1d'));
   g.px(headX + 1, headY - 2, C_WHITE);
 
-  // MASSIVE DINOBLADE BUSTER GREATSWORD IN JAWS
-  const gripX = headX + 4;
-  const gripY = headY + 2.8;
+  // MASSIVE IRON BUSTER BLADE — the leather grip is clamped between the jaws.
+  // The sequence reads as head-driven: rear-up anticipation, long lateral
+  // sweep, impact at the far reach, then a heavy low follow-through.
+  const gripX = headX + 5.1;
+  const gripY = headY + 3.0;
 
   if (m.atkStep === -1) {
-    // Classic DinoBlade silhouette: massive broad cleaver slung up-back over shoulder from jaws!
+    // Resting silhouette: blade slung up and behind the skull, leaving the jaw readable.
     const sway = m.breath * 0.7;
-    g.line(gripX + 4, gripY + 2, gripX - 2, gripY - 1, C_WOOD_M, 1.2); // hilt
-    g.blade(gripX - 1, gripY - 1, gripX - 16, gripY - 13 + sway, 4.6, 5.4, C_STEEL_D, C_STEEL_M, C_STEEL_L);
-    // Notches in heavy iron greatsword (faithful to the DinoBlade screenshot!)
-    g.px(gripX - 8, gripY - 8 + sway, C_STEEL_D);
-    g.px(gripX - 12, gripY - 11 + sway, C_STEEL_D);
-    g.line(gripX - 3, gripY - 2, gripX - 13, gripY - 10 + sway, C_WHITE, 0.5); // gleam
-    g.line(gripX - 1, gripY - 3, gripX + 2, gripY + 1, C_GOLD_M, 1.3); // crossguard
-    g.px(gripX, gripY - 2, C_GOLD_L);
+    drawRexMouthBlade(g, gripX, gripY, gripX - 18, gripY - 15 + sway);
   } else if (m.atkStep === 0) {
-    // Wind-up: lifts colossal sword high behind head!
-    g.blade(gripX - 1, gripY - 1, gripX - 13, 2, 4.8, 5.6, C_STEEL_D, C_STEEL_M, C_STEEL_L);
-    g.line(gripX - 2, gripY - 2, gripX + 2, gripY + 1, C_GOLD_L, 1.3);
+    // Clear anticipation: the jaws pull the blade high to the rear before the sweep.
+    drawRexMouthBlade(g, gripX, gripY, gripX - 16, 1.5);
   } else if (m.atkStep === 1) {
-    // Fast downward cleave with blazing orange/white smear arc!
-    g.smearArc(gripX - 2, gripY + 4, 17, 5.5, -2.35, -0.15, C_FIRE_D, C_FIRE_M, C_FIRE_L);
-    g.blade(gripX, gripY, gripX + 14, gripY - 10, 4.6, 5.4, C_STEEL_D, C_STEEL_L, C_WHITE);
-    g.line(gripX - 1, gripY - 2, gripX + 2, gripY + 2, C_GOLD_L, 1.3);
+    // First half of the head-driven lateral sweep; a cold wake tracks blade length.
+    g.smearArc(gripX, gripY, 19, 3.1, -2.38, -0.34, C_STEEL_D, C_STEEL_M, C_STEEL_L);
+    drawRexMouthBlade(g, gripX, gripY, 46, gripY - 8, C_WHITE);
   } else if (m.atkStep === 2) {
-    // Peak impact smash forward-down!
-    g.smearArc(gripX - 4, gripY + 6, 18, 6.2, -1.65, 0.72, C_FIRE_D, C_FIRE_M, C_WHITE);
-    g.blade(gripX, gripY, Math.min(46, gripX + 13), Math.min(45, gripY + 15), 4.8, 5.6, C_STEEL_D, C_STEEL_L, C_WHITE);
-    g.line(gripX - 2, gripY + 1, gripX + 2, gripY - 2, C_GOLD_L, 1.3);
+    // Peak impact is at the far front of the weapon's 2.85-tile game reach.
+    g.smearArc(gripX, gripY, 20, 4.3, -1.15, 0.78, C_STEEL_D, C_STEEL_M, C_WHITE);
+    drawRexMouthBlade(g, gripX, gripY, 46, Math.min(43, gripY + 13), C_WHITE);
+    g.px(46, Math.min(43, gripY + 13), C_FIRE_L);
+    g.px(44, Math.min(45, gripY + 15), C_FIRE_M);
   } else if (m.atkStep === 3) {
-    // Follow-through sparks
-    g.smearArc(gripX - 4, gripY + 6, 16, 3.0, -0.4, 0.8, C_FIRE_D, C_FIRE_M, C_FIRE_L);
-    g.blade(gripX, gripY, Math.min(46, gripX + 10), Math.min(45, gripY + 16), 4.6, 5.2, C_STEEL_D, C_STEEL_M, C_STEEL_L);
-    g.line(gripX - 2, gripY + 1, gripX + 2, gripY - 2, C_GOLD_M, 1.2);
+    // Heavy follow-through drags the slab low rather than snapping back instantly.
+    g.smearArc(gripX, gripY, 18, 2.1, 0.08, 0.92, C_STEEL_D, C_STEEL_M, C_STEEL_L);
+    drawRexMouthBlade(g, gripX, gripY, gripX + 2, 45);
   } else {
-    // Recovering back to shoulder
-    g.blade(gripX - 1, gripY, gripX - 10, gripY - 12, 4.6, 5.2, C_STEEL_D, C_STEEL_M, C_STEEL_L);
-    g.line(gripX - 1, gripY - 2, gripX + 2, gripY + 1, C_GOLD_M, 1.2);
+    // Recovery returns the blade behind the head into the idle silhouette.
+    drawRexMouthBlade(g, gripX, gripY, gripX - 13, gripY - 13);
   }
 
   g.outline('#121710');
@@ -505,9 +561,9 @@ function drawTRexFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
 function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   const g = new PixelGrid(48, 48);
   const m = getMotion(pose, frame);
-  const body = makeRamp('#0e5a6d', '#0891b2', '#22d3ee', '#a5f3fc');
-  const belly = makeRamp('#67b7c7', '#bae6fd', '#f0f9ff');
-  const plume = makeRamp('#991b1b', '#ef4444', '#fca5a5');
+  const body = makeRamp('#202832', '#394e53', '#577270', '#8da397');
+  const belly = makeRamp('#5b6558', '#8b9176', '#d2c8a3');
+  const plume = makeRamp('#49262f', '#84514a', '#c18665');
   const by = Math.round(m.bob);
   const lx = m.leanX * 1.35;
 
@@ -520,7 +576,7 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
       [16 + m.legB * 0.5, 35, 1.5],
       [bX, bY - 1, 1.2],
     ],
-    makeRamp('#083d4c', '#0e7490', '#0891b2')
+    makeRamp('#1a2330', '#2f414c', '#445c60')
   );
   g.px(bX + 2, bY - 1, C_WHITE); // raised sickle claw
 
@@ -536,13 +592,18 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   );
   // Crimson & cyan tail plume fan
   g.shadedEllipse(4, 21 + by + m.tailWave * 1.1, 3.6, 1.8, plume);
-  g.px(3, 20 + by + m.tailWave * 1.1, C_CYAN_L);
+  g.px(3, 20 + by + m.tailWave * 1.1, C_GOLD_M);
 
   // Sleek leaning predator torso
   g.shadedEllipse(22 + lx * 0.6, 25 + by, 6.2, 4.1, body);
   g.shadedEllipse(23 + lx * 0.7, 27 + by, 4.4, 2.1, belly);
-  // Ninja waist wrap
-  g.line(20 + lx * 0.6, 22 + by, 22 + lx * 0.6, 28 + by, C_SCARF_M, 1.1);
+  // Asymmetric lamellar shoulder and a worn leather harness.
+  const armorX = 22 + lx * 0.6;
+  g.line(armorX - 5, 23 + by, armorX + 4, 21 + by, C_STEEL_D, 2);
+  g.line(armorX - 4, 22 + by, armorX + 3, 20 + by, C_STEEL_M, 0.9);
+  g.line(armorX - 3, 23 + by, armorX + 1, 29 + by, C_WOOD_M, 1.2);
+  g.px(armorX - 1, 25 + by, C_GOLD_M);
+  g.px(armorX + 2, 22 + by, C_STEEL_L);
 
   // Front springy leg with lethal sickle claw
   const fX = 22 + m.legA * 1.2;
@@ -573,7 +634,8 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
     ],
     body
   );
-  // Head plumes swept back
+  // Layered feather mantle and broken iron forehead plate.
+  g.polygon([[hx + 2, hy - 1], [hx - 7, hy - 7], [hx - 9, hy - 6], [hx - 7, hy - 3], [hx - 12, hy - 4], [hx - 8, hy + 1], [hx - 2, hy + 2]], plume.dark);
   g.spline(
     [
       [hx - 1, hy - 2, 1.6],
@@ -584,6 +646,8 @@ function drawRaptorFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   );
   // Snout
   g.taper(hx, hy, 2.4, hx + 6.5, hy + 0.8, 1.3, body);
+  g.line(hx - 1, hy - 2, hx + 3, hy - 1.8, C_STEEL_M, 0.7);
+  g.px(hx + 5, hy + 1.7, C_IVORY);
   g.rect(hx + 1, hy - 1.5, 2, 1.5, C_GOLD_L); // razor eye
   g.px(hx + 2, hy - 1.5, C_WHITE);
 
@@ -872,17 +936,21 @@ function drawDodoWizardFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
 function drawPteranodonFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
   const g = new PixelGrid(48, 48);
   const m = getMotion(pose, frame);
-  const body = makeRamp('#4c1d95', '#7c3aed', '#a78bfa', '#ddd6fe');
-  const wing = makeRamp('#312e81', '#5b21b6', '#8b5cf6');
-  const bone = makeRamp('#b45309', '#f59e0b', '#fde68a');
+  const body = makeRamp('#222331', '#424053', '#67617c', '#a49ab4');
+  const wing = makeRamp('#292633', '#4e394b', '#765062');
+  const bone = makeRamp('#66473c', '#9f7853', '#d7bd8b');
 
   // Smooth continuous hovering & wingbeat!
   const hoverPhase = (frame / (pose === 'walk' ? 6 : 4)) * Math.PI * 2;
-  const hoverY = Math.round(Math.sin(hoverPhase) * (pose === 'walk' ? 2.8 : 1.8));
+  const hoverY = Math.round(Math.sin(hoverPhase - 0.45) * (pose === 'walk' ? 2.8 : 1.8));
   const flap = Math.sin(hoverPhase) * (pose === 'walk' ? 9.5 : 5.0);
   const cy = 22 + hoverY;
-  const lx = m.leanX;
+  const lx = m.leanX + (pose === 'walk' ? Math.cos(hoverPhase) * 1.7 : 0);
 
+  // Ragged, load-bearing wing membranes: the tips and trailing folds move together.
+  g.polygon([[22, cy], [31, cy - 6 - flap * 0.7], [40, cy - 10 - flap], [37, cy + 2 - flap * 0.5], [31, cy + 1], [26, cy + 7]], wing.dark);
+  g.polygon([[20, cy], [11, cy - 4 + flap * 0.75], [2, cy - 9 + flap], [5, cy + 7 + flap * 0.56], [10, cy + 5 + flap * 0.5], [14, cy + 11], [20, cy + 5]], wing.mid);
+  g.polygon([[9, cy - 2 + flap * 0.75], [5, cy + 6 + flap * 0.56], [10, cy + 4 + flap * 0.5], [13, cy + 9]], wing.dark);
   // Far wing membrane + golden wing bone strut
   g.spline(
     [
@@ -890,7 +958,7 @@ function drawPteranodonFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
       [30 + lx * 0.5, cy - 5 - flap * 0.7, 3.6],
       [39, cy - 9 - flap, 1.8],
     ],
-    makeRamp('#2e1065', '#4c1d95', '#6d28d9')
+    makeRamp('#1e2633', '#303344', '#575069')
   );
   g.line(23 + lx * 0.5, cy - 1, 39, cy - 10 - flap, bone.mid, 0.9);
 
@@ -915,7 +983,12 @@ function drawPteranodonFrame(pose: AnimPose, frame: number): HTMLCanvasElement {
 
   // Torso & tucked aerial talons
   g.shadedEllipse(21 + lx * 0.5, cy + 2, 5.2, 6.2, body);
-  g.shadedEllipse(22 + lx * 0.6, cy + 3, 3.2, 4.2, makeRamp('#d97706', '#fbbf24', '#fef3c7'));
+  g.shadedEllipse(22 + lx * 0.6, cy + 3, 3.2, 4.2, makeRamp('#544842', '#806b55', '#b1986c'));
+  const plate = 21 + lx * 0.5;
+  g.line(plate - 4, cy, plate + 3, cy + 2, C_STEEL_D, 1.8);
+  g.line(plate - 3, cy - 1, plate + 3, cy + 1, C_STEEL_M, 0.8);
+  g.line(plate - 2, cy + 3, plate + 3, cy + 5, C_WOOD_M, 0.9);
+  g.px(plate + 2, cy + 4, C_GOLD_M);
   // Talons
   g.line(19 + lx * 0.5, cy + 8, 18 + lx * 0.5, cy + 13, bone.mid, 1.0);
   g.line(23 + lx * 0.5, cy + 8, 24 + lx * 0.5, cy + 13, bone.light, 1.0);
@@ -1278,11 +1351,13 @@ function drawIsoDiamondTile(
     const x0 = 16 - span;
     const x1 = 16 + span - 1;
     for (let x = x0; x <= x1; x++) {
-      const hash = (x * 73 + y * 151 + variant * 37) & 15;
+      const hash = ((x >> 2) * 73 + (y >> 1) * 151 + variant * 37) & 15;
+      const seam = (x + y * 2 + variant * 4) % 24;
       let col = cBase;
       if (x === x0 || x === x1) col = cBord;
+      else if (y > 2 && y < 13 && seam === 0) col = cA;
       else if (hash < 3) col = cA;
-      else if (hash > 12) col = cB;
+      else if (hash > 12 || (y < 7 && x === x0 + 1)) col = cB;
       g.px(x, y, col);
     }
   }
@@ -1302,7 +1377,7 @@ function drawIsoDiamondTile(
 function drawPropSprite(kind: string): HTMLCanvasElement {
   const g = new PixelGrid(28, 32);
   if (kind === 'fern') {
-    const f = makeRamp('#14532d', '#16a34a', '#4ade80');
+    const f = makeRamp('#2c3d38', '#566451', '#819078');
     g.taper(14, 28, 1.5, 5, 16, 0.9, f);
     g.taper(14, 28, 1.5, 23, 16, 0.9, f);
     g.taper(14, 28, 1.5, 9, 11, 0.9, f);
@@ -1310,7 +1385,7 @@ function drawPropSprite(kind: string): HTMLCanvasElement {
     g.taper(14, 28, 1.6, 14, 9, 0.9, f);
   } else if (kind === 'palm') {
     g.taper(14, 29, 2.0, 13, 12, 1.4, makeRamp('#451a03', '#78350f', '#b45309'));
-    const leaf = makeRamp('#14532d', '#15803d', '#4ade80');
+    const leaf = makeRamp('#293b38', '#455e52', '#738671');
     g.taper(13, 12, 1.8, 3, 15, 0.9, leaf);
     g.taper(13, 12, 1.8, 24, 14, 0.9, leaf);
     g.taper(13, 12, 1.8, 6, 6, 0.9, leaf);
@@ -1407,6 +1482,10 @@ function drawSmallIcon(
 
 const previewFramesCache = new Map<string, string[]>();
 
+export function clearDinoPreviewCache(): void {
+  previewFramesCache.clear();
+}
+
 /** Returns all 4 crisp animated idle data-URLs for Title Screen / HUD previews */
 export function getDinoPreviewFrames(spriteId: string): string[] {
   const cached = previewFramesCache.get(spriteId);
@@ -1437,7 +1516,7 @@ export function getDinoPreviewFrames(spriteId: string): string[] {
         canvas = drawSpinosaurusBossFrame('idle', f);
         break;
     }
-    urls.push(canvas.toDataURL());
+    urls.push((codexFrame(spriteId, 'idle', f) ?? canvas).toDataURL());
   }
   previewFramesCache.set(spriteId, urls);
   return urls;
@@ -1457,7 +1536,7 @@ export function buildPixelAtlas(scene: Phaser.Scene): void {
     for (const pose of poses) {
       const count = ANIM_COUNTS[pose];
       for (let f = 0; f < count; f++) {
-        entries.push([`${prefix}_${pose}_${f}`, drawer(pose, f)]);
+        entries.push([`${prefix}_${pose}_${f}`, codexFrame(prefix, pose, f) ?? drawer(pose, f)]);
       }
     }
   };
@@ -1488,19 +1567,19 @@ export function buildPixelAtlas(scene: Phaser.Scene): void {
     }
   > = {
     jungle: {
-      ground: ['#2d5a34', '#244a2a', '#3a7040', '#1d3c22'],
-      path: ['#7c5c3b', '#6b4d31', '#8f6b47', '#583f27'],
-      wall: ['#3f473e', '#2d332d', '#545e53', '#1c201c'],
+      ground: ['#344445', '#2d3c3e', '#405053', '#273339'],
+      path: ['#60594f', '#514e48', '#6a6356', '#44423e'],
+      wall: ['#4b6767', '#354c52', '#577978', '#283940'],
     },
     volcano: {
-      ground: ['#3a3335', '#2c2628', '#4a4144', '#221c1e'],
-      path: ['#574139', '#47332c', '#6b4f44', '#33231e'],
-      wall: ['#261f22', '#1a1417', '#7c2d12', '#0f0c0e'],
+      ground: ['#39364f', '#302d43', '#46435c', '#272535'],
+      path: ['#765850', '#644945', '#88675b', '#493638'],
+      wall: ['#57506f', '#413b58', '#685b82', '#2d2942'],
     },
     canyon: {
-      ground: ['#6e5c4b', '#5c4b3c', '#826e5a', '#4a3c30'],
-      path: ['#87735d', '#756350', '#99836b', '#5e4f3f'],
-      wall: ['#4a423d', '#36302c', '#5e544d', '#24201e'],
+      ground: ['#3c535b', '#31454e', '#48636a', '#263b44'],
+      path: ['#676b65', '#545c59', '#777d72', '#414d4d'],
+      wall: ['#647980', '#47616c', '#74898b', '#344951'],
     },
   };
 

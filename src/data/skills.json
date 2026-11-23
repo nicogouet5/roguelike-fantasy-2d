@@ -8,10 +8,10 @@
     "spCost": 0,
     "cooldownMs": 0,
     "castMs": 0,
-    "range": 2.45,
-    "atkMult": 1.18,
-    "arcDeg": 115,
-    "knockback": 0.45,
+    "range": 2.85,
+    "atkMult": 1.2,
+    "arcDeg": 140,
+    "knockback": 0.6,
     "sfx": "greatsword"
   },
   {
