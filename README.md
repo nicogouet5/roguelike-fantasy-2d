@@ -3,6 +3,8 @@
 ![DinoLike: Reino Jurásico](./docs/media/hero.png)
 
 # 🦖 DinoLike: Reino Jurásico
+🏆 **Proyecto creado para el Hackatón de OpenAI.**
+DinoLike: Reino Jurásico es un action roguelite isométrico en pixel art con 5 dinosaurios jugables, 4 escenarios, jefes con fases y audio procedural. Lo construimos en pocos días combinando diseño de juego dirigido por datos (JSON + Zod), un motor de combate puro y testeable, y arte y cinemáticas generados con IA
 
 **Action roguelite 2D isométrico en pixel art, donde los dinosaurios cargan armas legendarias.**
 
