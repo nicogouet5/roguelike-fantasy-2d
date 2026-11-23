@@ -109,6 +109,7 @@ const classSchema = z.object({
   critMult: z.number().positive(),
   attackRange: z.number().positive(),
   isRanged: z.boolean(),
+  canFly: z.boolean(),
   baseStats: z.object({
     STR: z.number().int().positive(),
     AGI: z.number().int().positive(),

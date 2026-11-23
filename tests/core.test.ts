@@ -15,9 +15,10 @@ import { loadGameData } from '../src/core/data.ts';
 import { getElementMultiplier } from '../src/core/elements.ts';
 import { buyAmberPotion, createGameState, stepGame, transitionToNextZone, usePotion } from '../src/core/engine.ts';
 import { gridToScreen, screenToGrid } from '../src/core/iso.ts';
-import { generateZoneMap, hasWalkablePath, isWalkable } from '../src/core/mapGen.ts';
+import { generateZoneMap, hasWalkablePath, isPlayerTraversable, isWalkable } from '../src/core/mapGen.ts';
 import { cast, grantPlayerExp } from '../src/core/skills.ts';
 import { computeDerivedStats, getBasicAttackRange, mitigateDamage } from '../src/core/stats.ts';
+import type { ZoneMap } from '../src/core/types.ts';
 
 describe('DinoBlade Core & Data Validation', () => {
   const data = loadGameData();
@@ -275,7 +276,46 @@ describe('DinoBlade Core & Data Validation', () => {
     }
     const bridge = generateZoneMap(data.mapsByFloor[1]!, 'bridge');
     expect(isWalkable(bridge, 5.5, bridge.height / 2 + 9)).toBe(true);
-    expect(isWalkable(bridge, bridge.width / 2, bridge.height / 2 + 9)).toBe(false);
+    // Between the mid plaza and the south catwalk there is only chasm.
+    expect(isWalkable(bridge, bridge.width / 2, bridge.height / 2 + 10)).toBe(false);
+  });
+
+  it('lets only the flying Pteranodon cross authored walls and abyss tiles', () => {
+    const zone: ZoneMap = {
+      mapId: 'flight-test',
+      floorIndex: 0,
+      biome: 'jungle' as const,
+      width: 5,
+      height: 3,
+      tiles: [
+        'ground', 'ground', 'ground', 'ground', 'ground',
+        'ground', 'wall', 'void', 'ground', 'ground',
+        'ground', 'ground', 'ground', 'ground', 'ground',
+      ],
+      variants: new Array(15).fill(0),
+      spawn: { x: 0.5, y: 1.5 },
+      portal: { x: 4.5, y: 1.5 },
+      props: [],
+    };
+    expect(isPlayerTraversable(zone, 1.5, 1.5, false)).toBe(false);
+    expect(isPlayerTraversable(zone, 2.5, 1.5, false)).toBe(false);
+    expect(isPlayerTraversable(zone, 1.5, 1.5, true)).toBe(true);
+    expect(isPlayerTraversable(zone, 2.5, 1.5, true)).toBe(true);
+    expect(isPlayerTraversable(zone, -0.1, 1.5, true)).toBe(false);
+
+    const ptera = createGameState(data, { classId: 'pteranodon', seed: 'flight-ptera' });
+    ptera.zone = { ...zone, tiles: [...zone.tiles], variants: [...zone.variants] };
+    ptera.player.x = 0.99;
+    ptera.player.y = 1.5;
+    stepGame(ptera, data, 80, { moveX: 1, moveY: 0 });
+    expect(ptera.player.x).toBeGreaterThan(1);
+
+    const rex = createGameState(data, { classId: 'trex', seed: 'flight-rex' });
+    rex.zone = { ...zone, tiles: [...zone.tiles], variants: [...zone.variants] };
+    rex.player.x = 0.99;
+    rex.player.y = 1.5;
+    stepGame(rex, data, 80, { moveX: 1, moveY: 0 });
+    expect(rex.player.x).toBe(0.99);
   });
 
   it('transitions to boss floor with Spinosaurus Hoja-Abisal and executes headless bot cleanly', () => {

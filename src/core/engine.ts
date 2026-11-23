@@ -1,7 +1,7 @@
 import { spawnMob, stepMobsAi } from './ai.ts';
 import { AMBER_POTION_COST, enqueueOffer } from './boons.ts';
 import type { GameData } from './data.ts';
-import { generateZoneMap, isWalkable } from './mapGen.ts';
+import { generateZoneMap, isPlayerTraversable, isWalkable } from './mapGen.ts';
 import { createRng, hashSeed } from './rng.ts';
 import { addPlayerBuff, cast, damageMob, damagePlayer, findNearestMob } from './skills.ts';
 import { computeDerivedStats, expRequiredForLevel, getBasicAttackRange } from './stats.ts';
@@ -337,12 +337,12 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
     const ny = input.moveY / Math.max(1, mag);
     const candX = player.x + nx * derived.moveSpeed * dtSec;
     const candY = player.y + ny * derived.moveSpeed * dtSec;
-    if (isWalkable(state.zone, candX, candY)) {
+    if (isPlayerTraversable(state.zone, candX, candY, cls.canFly)) {
       player.x = candX;
       player.y = candY;
-    } else if (isWalkable(state.zone, candX, player.y)) {
+    } else if (isPlayerTraversable(state.zone, candX, player.y, cls.canFly)) {
       player.x = candX;
-    } else if (isWalkable(state.zone, player.x, candY)) {
+    } else if (isPlayerTraversable(state.zone, player.x, candY, cls.canFly)) {
       player.y = candY;
     }
     player.vx = nx * derived.moveSpeed;

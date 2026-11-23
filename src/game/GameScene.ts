@@ -15,6 +15,7 @@ import { cast, findNearestMob, grantPlayerExp } from '../core/skills.ts';
 import type { ElementName, GameState } from '../core/types.ts';
 import type { GameHud } from './hud.ts';
 import { renderMapVisuals } from './mapRenderer.ts';
+import { preloadScenarioTextures } from './scenarioArt.ts';
 import { drawTriceratopsHornGrowth } from './triceratopsHorns.ts';
 import {
   AfterimagePool,
@@ -101,6 +102,7 @@ export class GameScene extends Phaser.Scene {
     preloadCodexArt(this);
     preloadPlayableSheets(this);
     preloadMobSheets(this);
+    preloadScenarioTextures(this);
   }
 
   create(): void {

@@ -31,7 +31,7 @@ const STAT_KEYS: StatKey[] = ['STR', 'AGI', 'VIT', 'INT', 'DEX', 'LUK'];
 
 export class GameHud {
   private selectedClassId: string;
-  private seed = 'dinoblade-2026';
+  private seed = 'dinolike-2026';
   private autoCastStart = false;
   private statsOpen = false;
   private escOpen = false;
@@ -233,6 +233,7 @@ export class GameHud {
     const selectedInfo = this.data.names.classes[selected.id]!;
     const weaponName = this.data.names.weapons[selected.weaponType];
     const archName = this.data.names.archetypes[selected.archetype];
+    const [gameTitle, gameRealm = 'Reino Jurásico'] = this.data.names.ui.title.split(':').map((part) => part.trim());
 
     const cardsHtml = this.data.classes
       .map((cls) => {
@@ -241,7 +242,7 @@ export class GameHud {
         const frames = getDinoPreviewFrames(cls.spriteId);
         const preview = frames[this.previewAnimFrame % frames.length]!;
         return `
-          <button class="dino-card ${active}" data-class="${cls.id}" style="--accent:${cls.accentColor}">
+          <button class="dino-card ${active}" data-class="${cls.id}" style="--accent:${cls.accentColor}" aria-pressed="${active ? 'true' : 'false'}">
             <img class="pixel-sprite" data-preview-sprite="${cls.spriteId}" src="${preview}" alt="${info.name}" />
             <div class="dino-card-name">${info.name}</div>
             <div class="dino-card-weapon">${this.data.names.weapons[cls.weaponType]}</div>
@@ -277,50 +278,64 @@ export class GameHud {
 
     this.titleEl.innerHTML = `
       <div class="title-panel">
-        <div class="title-header">
-          <div class="title-badge">PIXEL ART · 2D ISOMÉTRICO</div>
-          <div class="fantasy-heading">
-            <span class="orn-divider left"></span>
-            <h1>${this.data.names.ui.title}</h1>
-            <span class="orn-divider right"></span>
+        <section class="landing-hero" aria-labelledby="dinolike-title">
+          <div class="landing-copy">
+            <p class="landing-genre">${this.data.names.ui.subtitle}</p>
+            <h1 id="dinolike-title"><span>${gameTitle}</span><small>${gameRealm}</small></h1>
+            <p class="landing-lede">Cinco guerreros prehistóricos. Un reino quebrado. Una cacería contra la oscuridad.</p>
+            <button id="explore-classes-btn" class="landing-action">Elige tu dinosaurio</button>
+            <p class="landing-oath">Sobrevive a las oleadas. Forja tu build. Desafía al Hoja-Abisal.</p>
           </div>
-          <p class="title-sub">Elige tu especie prehistórica y empuña tu arma contra el Spinosaurus Hoja-Abisal.</p>
-        </div>
-
-        <div class="dino-grid">${cardsHtml}</div>
-
-        <div class="selected-detail" style="--accent:${selected.accentColor}">
-          <div class="detail-left">
-            <img class="pixel-sprite big-preview" data-preview-sprite="${selected.spriteId}" src="${getDinoPreviewFrames(selected.spriteId)[this.previewAnimFrame % 4]!}" alt="${selectedInfo.name}" />
-            <div class="arch-pill">${archName}</div>
-            <div class="weapon-pill">${weaponName}</div>
+          <div class="landing-art" role="img" aria-label="Guerreros dinosaurio frente al Spinosaurus Hoja-Abisal en un reino en ruinas">
+            <span>La Falla 23 aguarda</span>
           </div>
-          <div class="detail-right">
-            <h2>${selectedInfo.name}</h2>
-            <p>${selectedInfo.desc}</p>
-            <div class="meters-grid">
-              ${bar('VIDA', selected.baseHp, 300, '#22c55e')}
-              ${bar('DAÑO', Math.max(selected.baseAtk, selected.baseMatk), 38, '#ef4444')}
-              ${bar('VELOCIDAD', selected.baseMoveSpeed * 10, 55, '#38bdf8')}
-              ${bar('DEFENSA', selected.baseDef, 60, '#f59e0b')}
+        </section>
+
+        <section id="class-selection" class="class-selection" aria-labelledby="class-selection-title">
+          <div class="selection-heading">
+            <h2 id="class-selection-title">Elige quién cruzará la Falla</h2>
+            <p>Cada especie cambia tu arma, movilidad y forma de sobrevivir.</p>
+          </div>
+
+          <div class="dino-grid">${cardsHtml}</div>
+
+          <div class="selected-detail" style="--accent:${selected.accentColor}">
+            <div class="detail-left">
+              <img class="pixel-sprite big-preview" data-preview-sprite="${selected.spriteId}" src="${getDinoPreviewFrames(selected.spriteId)[this.previewAnimFrame % 4]!}" alt="${selectedInfo.name}" />
+              <div class="arch-pill">${archName}</div>
+              <div class="weapon-pill">${weaponName}</div>
             </div>
-            <div class="skill-list">${skillChips}</div>
+            <div class="detail-right">
+              <h3>${selectedInfo.name}</h3>
+              <p>${selectedInfo.desc}</p>
+              <div class="meters-grid">
+                ${bar('VIDA', selected.baseHp, 300, '#22c55e')}
+                ${bar('DAÑO', Math.max(selected.baseAtk, selected.baseMatk), 38, '#ef4444')}
+                ${bar('VELOCIDAD', selected.baseMoveSpeed * 10, 55, '#38bdf8')}
+                ${bar('DEFENSA', selected.baseDef, 60, '#f59e0b')}
+              </div>
+              <div class="skill-list">${skillChips}</div>
+            </div>
           </div>
-        </div>
 
-        <div class="title-controls">
-          <label class="seed-label">
-            Semilla
-            <input id="seed-input" type="text" value="${this.seed}" />
-          </label>
-          <label class="toggle-label">
-            <input id="autocast-check" type="checkbox" ${this.autoCastStart ? 'checked' : ''} />
-            Auto-Cast habilidades
-          </label>
-          <button id="start-run-btn" class="primary-btn">⚔️ Iniciar Cacería</button>
-        </div>
+          <div class="title-controls">
+            <label class="seed-label">
+              Semilla
+              <input id="seed-input" type="text" value="${this.seed}" />
+            </label>
+            <label class="toggle-label">
+              <input id="autocast-check" type="checkbox" ${this.autoCastStart ? 'checked' : ''} />
+              Auto-Cast habilidades
+            </label>
+            <button id="start-run-btn" class="primary-btn">Iniciar cacería</button>
+          </div>
+        </section>
       </div>
     `;
+
+    this.titleEl.querySelector('#explore-classes-btn')!.addEventListener('click', () => {
+      this.titleEl.querySelector('#class-selection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
     this.titleEl.querySelectorAll<HTMLButtonElement>('.dino-card').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -333,7 +348,7 @@ export class GameHud {
 
     const seedInput = this.titleEl.querySelector('#seed-input') as HTMLInputElement;
     seedInput.addEventListener('input', () => {
-      this.seed = seedInput.value.trim() || 'dinoblade-2026';
+      this.seed = seedInput.value.trim() || 'dinolike-2026';
     });
 
     const autoCheck = this.titleEl.querySelector('#autocast-check') as HTMLInputElement;
@@ -690,7 +705,7 @@ export class GameHud {
     for (let y = 0; y < state.zone.height; y++) {
       for (let x = 0; x < state.zone.width; x++) {
         const t = state.zone.tiles[y * state.zone.width + x];
-        if (t === 'wall') continue;
+        if (t === 'wall' || t === 'void') continue;
         ctx.fillStyle = t === 'path' ? '#574636' : '#263829';
         ctx.fillRect(x * sx, y * sy, Math.ceil(sx), Math.ceil(sy));
       }

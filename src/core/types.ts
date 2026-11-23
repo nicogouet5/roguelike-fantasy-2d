@@ -133,6 +133,8 @@ export interface DinoClassDef {
   critMult: number;
   attackRange: number;
   isRanged: boolean;
+  /** Aerial classes can occupy authored walls and voids, but never leave map bounds. */
+  canFly: boolean;
   baseStats: PrimaryStats;
   statGrowth: StatKey[];
   basicSkillId: string;

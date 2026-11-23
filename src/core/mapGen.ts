@@ -14,6 +14,17 @@ export function isWalkable(zone: ZoneMap, gx: number, gy: number): boolean {
   return t === 'ground' || t === 'path' || t === 'portal' || t === 'hazard';
 }
 
+/**
+ * Flight ignores authored walls and drops, while the explicit bounds check
+ * preserves the map's outer edge as a hard limit for every character.
+ */
+export function isPlayerTraversable(zone: ZoneMap, gx: number, gy: number, canFly: boolean): boolean {
+  const tx = Math.floor(gx);
+  const ty = Math.floor(gy);
+  if (tx < 0 || ty < 0 || tx >= zone.width || ty >= zone.height) return false;
+  return canFly || isWalkable(zone, gx, gy);
+}
+
 export function hasWalkablePath(
   zone: ZoneMap,
   from: { x: number; y: number },
