@@ -1,0 +1,17 @@
+{
+  "atlasKey": "dino_atlas",
+  "sprites": {
+    "dino_trex": { "source": "procedural", "framePrefix": "dino_trex" },
+    "dino_raptor": { "source": "procedural", "framePrefix": "dino_raptor" },
+    "dino_triceratops": { "source": "procedural", "framePrefix": "dino_triceratops" },
+    "dino_dodo": { "source": "procedural", "framePrefix": "dino_dodo" },
+    "dino_pteranodon": { "source": "procedural", "framePrefix": "dino_pteranodon" },
+    "mob_compy": { "source": "procedural", "framePrefix": "mob_compy" },
+    "mob_raptor": { "source": "procedural", "framePrefix": "mob_raptor" },
+    "mob_pachy": { "source": "procedural", "framePrefix": "mob_pachy" },
+    "mob_spitter": { "source": "procedural", "framePrefix": "mob_spitter" },
+    "mob_ankylo": { "source": "procedural", "framePrefix": "mob_ankylo" },
+    "mob_carno": { "source": "procedural", "framePrefix": "mob_carno" },
+    "boss_spinosaurus": { "source": "procedural", "framePrefix": "boss_spinosaurus" }
+  }
+}

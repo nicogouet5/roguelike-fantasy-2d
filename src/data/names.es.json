@@ -1,0 +1,120 @@
+{
+  "ui": {
+    "title": "DinoBlade: Reino Jurásico",
+    "subtitle": "Action Roguelite 2D Isométrico · Pixel Art"
+  },
+  "elements": {
+    "Neutral": "Hueso",
+    "Fire": "Magma",
+    "Water": "Hidro",
+    "Wind": "Tempestad",
+    "Earth": "Sísmico",
+    "Venom": "Veneno"
+  },
+  "weapons": {
+    "greatsword": "Espadón Gigante",
+    "katana": "Katanas Dobles",
+    "shield_lance": "Escudo Óseo y Lanza",
+    "amber_staff": "Báculo de Mago",
+    "bone_bow": "Arco de Hueso"
+  },
+  "archetypes": {
+    "colossus": "Coloso · Daño Bruto",
+    "glass_cannon": "DPS · Glass Cannon Veloz",
+    "tank": "Tanque Herbívoro",
+    "mage": "Mago Elemental",
+    "archer": "Arquero Cazador"
+  },
+  "classes": {
+    "trex": {
+      "name": "T-Rex",
+      "desc": "Depredador colosal que blande un espadón gigante en sus fauces. Golpes lentos de daño masivo, salto aplastante y rugido aturdidor."
+    },
+    "velociraptor": {
+      "name": "Velociraptor",
+      "desc": "Asesino ágil armado con katanas dobles. Velocidad extrema y críticos ×2 a cambio de poca vida y defensa."
+    },
+    "triceratops": {
+      "name": "Triceratops",
+      "desc": "Bastión herbívoro con escudo óseo y lanza. Aguanta oleadas enteras, embiste con sus cuernos y sacude el suelo."
+    },
+    "dodo": {
+      "name": "Dodo Mago",
+      "desc": "Ave prehistórica con gorrito de mago y báculo arcano. Pese a su aspecto adorable, desata lanzas de magma, rayos jurásicos y lluvias de meteoritos."
+    },
+    "pteranodon": {
+      "name": "Pteranodon",
+      "desc": "Tirador alado con arco de hueso. Mantiene distancia con flechas perforantes, ráfagas en abanico y saltos evasivos."
+    }
+  },
+  "skills": {
+    "rex_cleave_basic": { "name": "Tajo de Fauces", "desc": "Barrido pesado con el espadón." },
+    "rex_colossal_slash": { "name": "Tajo Colosal", "desc": "Arco ardiente de 165° que empuja y parte a múltiples enemigos." },
+    "rex_jaw_leap": { "name": "Salto Mandíbula", "desc": "Salta sobre el objetivo y aplasta el terreno con el espadón, aturdiendo en área." },
+    "rex_tyrant_roar": { "name": "Rugido Tirano", "desc": "Rugido explosivo que aturde alrededor y potencia tu ATK por 6 s." },
+    "raptor_katana_basic": { "name": "Corte Katana", "desc": "Tajo veloz con doble prob. de crítico." },
+    "raptor_flash_cut": { "name": "Corte Relámpago", "desc": "Dash ultrarrápido que atraviesa enemigos causando sangrado." },
+    "raptor_katana_flurry": { "name": "Tormenta de Katanas", "desc": "Ráfaga de 4 cortes veloces con sangrado y gran crítico." },
+    "raptor_predator_instinct": { "name": "Instinto Depredador", "desc": "Dispara tu velocidad de ataque, críticos y movimiento por 6.5 s." },
+    "trike_lance_basic": { "name": "Estocada Ósea", "desc": "Golpe firme con lanza y escudo que empuja." },
+    "trike_horn_charge": { "name": "Carga de Cuernos", "desc": "Embestida blindada que arrolla, empuja y aturde en línea." },
+    "trike_bone_aegis": { "name": "Égida de Placas", "desc": "Recupera 18% HP y activa escudo que reduce 55% el daño y devuelve espinas." },
+    "trike_seismic_stomp": { "name": "Pisotón Sísmico", "desc": "Onda de tierra en área que daña y aturde a los enemigos cercanos." },
+    "dodo_ember_basic": { "name": "Chispa de Ámbar", "desc": "Proyectil mágico de fuego a distancia." },
+    "dodo_magma_lance": { "name": "Lanza de Magma", "desc": "Proyectil ígneo que explota al impactar dañando en área." },
+    "dodo_jurassic_bolt": { "name": "Rayo Jurásico", "desc": "Descarga triple de energía tempestuosa en abanico." },
+    "dodo_meteor_rain": { "name": "Lluvia de Meteoritos", "desc": "Invoca 3 oleadas de meteoritos ardientes sobre la zona objetivo." },
+    "ptera_arrow_basic": { "name": "Flecha de Hueso", "desc": "Disparo ágil a larga distancia." },
+    "ptera_piercing_arrow": { "name": "Flecha Perforante", "desc": "Disparo de alta velocidad que atraviesa enemigos e ignora 40% DEF." },
+    "ptera_quill_volley": { "name": "Lluvia de Espinas", "desc": "Abanico de 5 flechas veloces frente al arquero." },
+    "ptera_wing_vault": { "name": "Impulso de Alas", "desc": "Salto evasivo hacia atrás con ráfaga de viento y bono de velocidad." },
+    "mob_bite": { "name": "Mordisco", "desc": "Ataque cuerpo a cuerpo." },
+    "mob_venom_spit": { "name": "Escupitajo Ácido", "desc": "Proyectil venenoso." },
+    "mob_quake_slam": { "name": "Golpe Sísmico", "desc": "Impacto pesado en área." },
+    "boss_odachi_cleave": { "name": "Tajo Odachi", "desc": "Corte masivo de espada abisal." },
+    "boss_hydro_wave": { "name": "Ola Cortante", "desc": "Triple onda hidro-cortante." },
+    "boss_abyssal_leap": { "name": "Salto Abisal", "desc": "Salto con espada clavada en área." },
+    "boss_cross_rend": { "name": "Cruce Extinción", "desc": "Múltiples impactos volcánicos telegrafiados." }
+  },
+  "mobs": {
+    "compsognathus": "Compsognathus",
+    "wild_raptor": "Raptor Salvaje",
+    "pachy_ram": "Pachy Ariete",
+    "venom_spitter": "Escupidor Venenoso",
+    "obsidian_ankylo": "Ankylosaurus Obsidiana",
+    "ash_carno": "Carnotaurus Ceniza",
+    "spinosaurus_boss": "Spinosaurus Hoja-Abisal"
+  },
+  "maps": {
+    "valle_helechos": "Valle de Helechos",
+    "crater_obsidiana": "Cráter de Obsidiana",
+    "canon_dinoblade": "Cañón del Espinosaurio"
+  },
+  "boons": {
+    "boon_primal_might": { "name": "Fuerza Primordial", "desc": "+14% ATK y +14% MATK en esta expedición." },
+    "boon_raptor_reflex": { "name": "Reflejos de Raptor", "desc": "+15% velocidad de ataque y +8% velocidad de movimiento." },
+    "boon_saurian_carapace": { "name": "Coraza Jurásica", "desc": "+18% HP máximo y +12 DEF fija." },
+    "boon_amber_veins": { "name": "Venas de Ámbar", "desc": "+22% SP máximo, +2.5 SP/s y -8% enfriamiento." },
+    "boon_keen_fangs": { "name": "Colmillos Afilados", "desc": "+12% prob. de crítico y +25% daño crítico." },
+    "boon_blood_frenzy": { "name": "Frenesí Sangriento", "desc": "+7% robo de vida al golpear y +8% ATK." },
+    "boon_obsidian_edge": { "name": "Filo de Obsidiana", "desc": "+22% ATK/MATK e ignora 18% de DEF enemiga." },
+    "boon_amber_resonance": { "name": "Resonancia de Ámbar", "desc": "-18% enfriamiento y +20% potencia de habilidades." },
+    "boon_rex_titan_blade": { "name": "Espadón Titánico", "desc": "+24% daño de habilidades y +18% alcance/área del T-Rex." },
+    "boon_raptor_phantom_edge": { "name": "Filo Fantasma", "desc": "+10% crítico, +18% ASPD y -12% enfriamiento para Velociraptor." },
+    "boon_trike_fortress": { "name": "Muralla Viviente", "desc": "+22% HP, +18 DEF y +18% poder de habilidades del Triceratops." },
+    "boon_dodo_cataclysm": { "name": "Cataclismo del Dodo", "desc": "+20% MATK, +20% área elemental y -10% enfriamiento para el Dodo Mago." },
+    "boon_ptera_gale_quiver": { "name": "Carcaj de Vendaval", "desc": "+16% ATK/ASPD y +1 proyectil extra en ráfagas del Pteranodon." },
+    "boon_relic_rex_fang": { "name": "Reliquia: Colmillo de Rex", "desc": "28% prob. de estallido de magma al golpear (+10% ATK)." },
+    "boon_relic_raptor_plume": { "name": "Reliquia: Pluma de Raptor", "desc": "35% prob. de aplicar sangrado (+14% velocidad, +8% crítico)." },
+    "boon_relic_trike_plate": { "name": "Reliquia: Placa de Triceratops", "desc": "Devuelve 35% del daño recibido (+24 DEF, +14% HP)." },
+    "boon_relic_volcanic_amber": { "name": "Reliquia: Ámbar Volcánico", "desc": "Al matar, detona una nova de magma alrededor (+12% MATK)." },
+    "boon_relic_abyssal_claw": { "name": "Reliquia: Garra Abisal", "desc": "Recupera 6% HP y 10 SP por cada enemigo derrotado (+5% robo de vida)." }
+  },
+  "relics": {
+    "relic_rex_fang": { "name": "Colmillo de Rex", "desc": "Golpes liberan llamas volcánicas." },
+    "relic_raptor_plume": { "name": "Pluma de Raptor", "desc": "Cortes infligen sangrado y aumentan agilidad." },
+    "relic_trike_plate": { "name": "Placa de Triceratops", "desc": "Espinas sísmicas contra atacantes." },
+    "relic_volcanic_amber": { "name": "Ámbar Volcánico", "desc": "Explosión ígnea al derrotar enemigos." },
+    "relic_abyssal_claw": { "name": "Garra Abisal", "desc": "Drena vitalidad y energía al cazar." }
+  }
+}

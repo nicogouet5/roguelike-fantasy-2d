@@ -1,0 +1,138 @@
+[
+  {
+    "id": "boon_primal_might",
+    "category": "mutation",
+    "rarity": "common",
+    "maxRank": 4,
+    "mods": { "atkPct": 0.14, "matkPct": 0.14 }
+  },
+  {
+    "id": "boon_raptor_reflex",
+    "category": "mutation",
+    "rarity": "common",
+    "maxRank": 4,
+    "mods": { "aspdPct": 0.15, "moveSpeedPct": 0.08 }
+  },
+  {
+    "id": "boon_saurian_carapace",
+    "category": "mutation",
+    "rarity": "common",
+    "maxRank": 4,
+    "mods": { "maxHpPct": 0.18, "flatDef": 12 }
+  },
+  {
+    "id": "boon_amber_veins",
+    "category": "mutation",
+    "rarity": "common",
+    "maxRank": 4,
+    "mods": { "maxSpPct": 0.22, "spRegen": 2.5, "cdrPct": 0.08 }
+  },
+  {
+    "id": "boon_keen_fangs",
+    "category": "mutation",
+    "rarity": "rare",
+    "maxRank": 3,
+    "mods": { "critChance": 0.12, "critDamage": 0.25 }
+  },
+  {
+    "id": "boon_blood_frenzy",
+    "category": "mutation",
+    "rarity": "rare",
+    "maxRank": 3,
+    "mods": { "lifesteal": 0.07, "atkPct": 0.08 }
+  },
+  {
+    "id": "boon_obsidian_edge",
+    "category": "mutation",
+    "rarity": "epic",
+    "maxRank": 2,
+    "mods": { "atkPct": 0.22, "matkPct": 0.22, "ignoreDef": 0.18 }
+  },
+  {
+    "id": "boon_amber_resonance",
+    "category": "mutation",
+    "rarity": "epic",
+    "maxRank": 2,
+    "mods": { "cdrPct": 0.18, "skillPowerPct": 0.2 }
+  },
+  {
+    "id": "boon_rex_titan_blade",
+    "category": "skill",
+    "rarity": "rare",
+    "classIds": ["trex"],
+    "maxRank": 3,
+    "mods": { "skillPowerPct": 0.24, "areaPct": 0.18 }
+  },
+  {
+    "id": "boon_raptor_phantom_edge",
+    "category": "skill",
+    "rarity": "rare",
+    "classIds": ["velociraptor"],
+    "maxRank": 3,
+    "mods": { "critChance": 0.1, "aspdPct": 0.18, "cdrPct": 0.12 }
+  },
+  {
+    "id": "boon_trike_fortress",
+    "category": "skill",
+    "rarity": "rare",
+    "classIds": ["triceratops"],
+    "maxRank": 3,
+    "mods": { "maxHpPct": 0.22, "flatDef": 18, "skillPowerPct": 0.18 }
+  },
+  {
+    "id": "boon_dodo_cataclysm",
+    "category": "skill",
+    "rarity": "rare",
+    "classIds": ["dodo"],
+    "maxRank": 3,
+    "mods": { "matkPct": 0.2, "areaPct": 0.2, "cdrPct": 0.1 }
+  },
+  {
+    "id": "boon_ptera_gale_quiver",
+    "category": "skill",
+    "rarity": "rare",
+    "classIds": ["pteranodon"],
+    "maxRank": 3,
+    "mods": { "atkPct": 0.16, "aspdPct": 0.16, "extraProjectiles": 1 }
+  },
+  {
+    "id": "boon_relic_rex_fang",
+    "category": "relic",
+    "rarity": "rare",
+    "maxRank": 1,
+    "relicId": "relic_rex_fang",
+    "mods": {}
+  },
+  {
+    "id": "boon_relic_raptor_plume",
+    "category": "relic",
+    "rarity": "rare",
+    "maxRank": 1,
+    "relicId": "relic_raptor_plume",
+    "mods": {}
+  },
+  {
+    "id": "boon_relic_trike_plate",
+    "category": "relic",
+    "rarity": "rare",
+    "maxRank": 1,
+    "relicId": "relic_trike_plate",
+    "mods": {}
+  },
+  {
+    "id": "boon_relic_volcanic_amber",
+    "category": "relic",
+    "rarity": "epic",
+    "maxRank": 1,
+    "relicId": "relic_volcanic_amber",
+    "mods": {}
+  },
+  {
+    "id": "boon_relic_abyssal_claw",
+    "category": "relic",
+    "rarity": "epic",
+    "maxRank": 1,
+    "relicId": "relic_abyssal_claw",
+    "mods": {}
+  }
+]

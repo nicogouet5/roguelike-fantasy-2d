@@ -1,0 +1,51 @@
+[
+  {
+    "id": "valle_helechos",
+    "floorIndex": 0,
+    "biome": "jungle",
+    "width": 36,
+    "height": 36,
+    "targetKills": 14,
+    "maxMobs": 14,
+    "eliteChance": 0.1,
+    "bgColor": "#142016",
+    "mobs": [
+      { "mobId": "compsognathus", "weight": 45 },
+      { "mobId": "wild_raptor", "weight": 35 },
+      { "mobId": "pachy_ram", "weight": 20 }
+    ]
+  },
+  {
+    "id": "crater_obsidiana",
+    "floorIndex": 1,
+    "biome": "volcano",
+    "width": 38,
+    "height": 38,
+    "targetKills": 16,
+    "maxMobs": 16,
+    "eliteChance": 0.22,
+    "bgColor": "#1d1414",
+    "mobs": [
+      { "mobId": "wild_raptor", "weight": 25 },
+      { "mobId": "venom_spitter", "weight": 30 },
+      { "mobId": "obsidian_ankylo", "weight": 25 },
+      { "mobId": "ash_carno", "weight": 20 }
+    ]
+  },
+  {
+    "id": "canon_dinoblade",
+    "floorIndex": 2,
+    "biome": "canyon",
+    "width": 26,
+    "height": 26,
+    "targetKills": 1,
+    "maxMobs": 4,
+    "eliteChance": 0,
+    "bgColor": "#1b1918",
+    "bossId": "spinosaurus_boss",
+    "mobs": [
+      { "mobId": "compsognathus", "weight": 60 },
+      { "mobId": "wild_raptor", "weight": 40 }
+    ]
+  }
+]

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "relic_rex_fang",
+    "hook": "onHit",
+    "chance": 0.28,
+    "element": "Fire",
+    "bonusDamageRatio": 0.45,
+    "statMods": { "atkPct": 0.1 }
+  },
+  {
+    "id": "relic_raptor_plume",
+    "hook": "onHit",
+    "chance": 0.35,
+    "element": "Wind",
+    "bleedMs": 2800,
+    "statMods": { "moveSpeedPct": 0.14, "critChance": 0.08 }
+  },
+  {
+    "id": "relic_trike_plate",
+    "hook": "onDamaged",
+    "chance": 1.0,
+    "element": "Earth",
+    "thornsRatio": 0.35,
+    "statMods": { "flatDef": 24, "maxHpPct": 0.14 }
+  },
+  {
+    "id": "relic_volcanic_amber",
+    "hook": "onKill",
+    "chance": 1.0,
+    "element": "Fire",
+    "novaRadius": 2.35,
+    "novaDamageRatio": 0.95,
+    "statMods": { "matkPct": 0.12 }
+  },
+  {
+    "id": "relic_abyssal_claw",
+    "hook": "onKill",
+    "chance": 1.0,
+    "element": "Water",
+    "healRatio": 0.06,
+    "spRestore": 10,
+    "statMods": { "lifesteal": 0.05 }
+  }
+]
