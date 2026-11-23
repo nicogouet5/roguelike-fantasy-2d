@@ -3,3 +3,4 @@ dist/
 .DS_Store
 *.log
 assets/Dark_Fantasy_Soulslike_SFX_Pack/
+assets/*.jpg

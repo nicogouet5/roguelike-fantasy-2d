@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import type { BiomeId } from '../core/types.ts';
 import { codexFrame } from './codexArt.ts';
+import { foodArtFrame } from './foodArt.ts';
 import { bossSheetFrame, mobSheetFrame } from './mobSheets.ts';
 import { playableSheetFrame } from './playableSheets.ts';
 
@@ -1726,7 +1727,8 @@ export function buildPixelAtlas(scene: Phaser.Scene): void {
     'sopaipilla',
     'chancaca',
   ] as const) {
-    entries.push([`food_${food}`, drawFoodIcon(food)]);
+    const key = `food_${food}`;
+    entries.push([key, foodArtFrame(key) ?? drawFoodIcon(food)]);
   }
 
   // Pack cleanly into a 2048-wide single WebGL texture atlas
