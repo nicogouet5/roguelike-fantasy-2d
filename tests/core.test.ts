@@ -478,6 +478,17 @@ describe('DinoBlade Core & Data Validation', () => {
     expect(sim.damageDealt).toBeGreaterThan(0);
   });
 
+  it('keeps Bodoque Hoja-Abisal at the intended high-difficulty stat line', () => {
+    const boss = data.mobsById['spinosaurus_boss'];
+
+    expect(boss).toMatchObject({
+      maxHp: 5600,
+      atk: 84,
+      matk: 78,
+      isBoss: true,
+    });
+  });
+
   it('records the boss cast identity for presentation without changing its telegraph contract', () => {
     const state = createGameState(data, { classId: 'velociraptor', seed: 'boss-visual-cue' });
     state.mobs = [];
