@@ -266,6 +266,10 @@ const namesSchema = z.object({
   ui: z.object({
     title: z.string().min(1),
     subtitle: z.string().min(1),
+    devTitle: z.string(),
+    devLevel: z.string(),
+    devStage: z.string(),
+    devHint: z.string(),
   }),
   elements: z.record(elementEnum, z.string().min(1)),
   weapons: z.record(weaponEnum, z.string().min(1)),

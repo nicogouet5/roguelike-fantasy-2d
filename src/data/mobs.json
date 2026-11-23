@@ -15,7 +15,7 @@
     "amberReward": 6,
     "aiProfile": "swarmer",
     "skillIds": ["mob_bite"],
-    "scale": 0.88
+    "scale": 1.05
   },
   {
     "id": "wild_raptor",
@@ -33,7 +33,7 @@
     "amberReward": 12,
     "aiProfile": "hunter",
     "skillIds": ["mob_bite"],
-    "scale": 1.0
+    "scale": 1.2
   },
   {
     "id": "pachy_ram",
@@ -51,7 +51,7 @@
     "amberReward": 16,
     "aiProfile": "charger",
     "skillIds": ["mob_bite", "mob_quake_slam"],
-    "scale": 1.05
+    "scale": 1.25
   },
   {
     "id": "venom_spitter",
@@ -69,7 +69,7 @@
     "amberReward": 18,
     "aiProfile": "ranged",
     "skillIds": ["mob_venom_spit"],
-    "scale": 1.0
+    "scale": 1.2
   },
   {
     "id": "obsidian_ankylo",
@@ -87,7 +87,7 @@
     "amberReward": 28,
     "aiProfile": "juggernaut",
     "skillIds": ["mob_bite", "mob_quake_slam"],
-    "scale": 1.18
+    "scale": 1.45
   },
   {
     "id": "ash_carno",
@@ -105,17 +105,17 @@
     "amberReward": 32,
     "aiProfile": "hunter",
     "skillIds": ["mob_bite", "mob_quake_slam"],
-    "scale": 1.18
+    "scale": 1.45
   },
   {
     "id": "spinosaurus_boss",
     "spriteId": "boss_spinosaurus",
     "element": "Water",
-    "maxHp": 1650,
-    "atk": 46,
-    "matk": 42,
-    "def": 42,
-    "mdef": 32,
+    "maxHp": 2900,
+    "atk": 54,
+    "matk": 50,
+    "def": 48,
+    "mdef": 38,
     "moveSpeed": 3.45,
     "aggroRange": 20.0,
     "attackRange": 3.0,
@@ -123,7 +123,7 @@
     "amberReward": 250,
     "aiProfile": "boss",
     "isBoss": true,
-    "skillIds": ["boss_odachi_cleave", "boss_hydro_wave", "boss_abyssal_leap", "boss_cross_rend"],
-    "scale": 1.5
+    "skillIds": ["boss_odachi_cleave", "boss_hydro_wave", "boss_abyssal_leap", "boss_cross_rend", "boss_tidal_barrage", "boss_maelstrom", "boss_riptide_chain", "boss_ember_surge"],
+    "scale": 2.0
   }
 ]

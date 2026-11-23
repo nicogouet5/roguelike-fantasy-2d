@@ -1,4 +1,5 @@
 import { createRng } from './rng.ts';
+import { buildScenarioLayout } from './scenarioLayouts.ts';
 import type { MapDef, PropEntity, TileKind, ZoneMap } from './types.ts';
 
 export function tileAt(zone: ZoneMap, gx: number, gy: number): TileKind {
@@ -18,6 +19,7 @@ export function hasWalkablePath(
   from: { x: number; y: number },
   to: { x: number; y: number }
 ): boolean {
+  if (!isWalkable(zone, from.x, from.y) || !isWalkable(zone, to.x, to.y)) return false;
   const sx = Math.floor(from.x);
   const sy = Math.floor(from.y);
   const tx = Math.floor(to.x);
@@ -52,6 +54,8 @@ export function hasWalkablePath(
 }
 
 export function generateZoneMap(mapDef: MapDef, seed: string): ZoneMap {
+  const authored = buildScenarioLayout(mapDef, seed);
+  if (authored) return authored;
   const rng = createRng(`${seed}:map:${mapDef.id}:${mapDef.floorIndex}`);
   const { width, height, biome } = mapDef;
   const tiles: TileKind[] = new Array(width * height).fill('ground');

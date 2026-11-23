@@ -5,6 +5,7 @@ const KINDS: RuinKind[] = ['retaining', 'rubble', 'pillar', 'arch', 'bastion'];
 const MATERIALS = [
   { top: '#738b86', side: '#435f60', dark: '#293e49', mortar: '#203138', accent: '#e6a968', glow: '#fff0b3' },
   { top: '#8c8198', side: '#62516d', dark: '#382e48', mortar: '#2a2839', accent: '#bf6258', glow: '#ffb275' },
+  { top: '#74889b', side: '#495d72', dark: '#2b354c', mortar: '#202b38', accent: '#e37262', glow: '#ffcc94' },
   { top: '#97a399', side: '#566b70', dark: '#344952', mortar: '#243841', accent: '#63a1ac', glow: '#bde2d8' },
 ];
 type Pt = readonly [number, number];
@@ -87,7 +88,7 @@ export function buildArenaArchitecture(scene: Phaser.Scene): void {
       block(32, 41, 23, 10, 9);
       block(32, 14, 19, 8, 39, 1);
       block(32, 11, 21, 9, 6);
-      if (floor === 0) {
+      if (floor === 2) {
         block(23, 8, 5, 2, 6);
         block(41, 8, 5, 2, 6, 1);
       } else if (floor === 1) {
@@ -106,7 +107,7 @@ export function buildArenaArchitecture(scene: Phaser.Scene): void {
       block(32, 27, 8, 4, 28, 1);
       block(32, 24, 11, 5, 5);
       if (floor === 0) block(32, 19, 7, 3, 5, 1);
-      if (floor === 2) poly([[30, 27], [31, 12], [37, 21], [36, 28]], m.top);
+      if (floor === 3) poly([[30, 27], [31, 12], [37, 21], [36, 28]], m.top);
       lamp(27, 47);
     } else {
       block(19, 49, 10, 5, 6);
@@ -115,7 +116,7 @@ export function buildArenaArchitecture(scene: Phaser.Scene): void {
       block(47, 24, 7, 4, 26, 1);
       poly([[12, 31], [12, 24], [18, 24], [18, 18], [23, 18], [23, 14], [42, 14], [42, 18], [48, 18], [48, 22], [54, 22], [54, 31], [44, 31], [44, 27], [39, 27], [39, 23], [28, 23], [28, 27], [23, 27], [23, 32]], m.side);
       poly([[12, 24], [17, 21], [22, 21], [22, 16], [27, 13], [42, 13], [49, 17], [54, 22], [48, 22], [41, 17], [26, 17], [23, 20], [18, 20], [18, 24]], m.top);
-      if (floor === 0) {
+      if (floor === 2) {
         ctx.fillStyle = m.glow;
         ctx.font = 'bold 7px monospace';
         ctx.textAlign = 'center';

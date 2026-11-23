@@ -55,7 +55,11 @@ export function articulateCodexFrame(spriteId: string, source: HTMLCanvasElement
   canvas.width = canvas.height = 96;
   const ctx = canvas.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
-  const stride = pose === 'walk' ? Math.sin(frame * Math.PI / 3) : 0;
+  // Six frames deliberately include contact, compression, passing and reach.
+  // The old sine-only motion made the large codex characters feel as if they
+  // floated.  These values retain a planted support foot on every walk frame.
+  const strideTable = [-1, 0.15, 1, 0.45, -0.7, -1.1];
+  const stride = pose === 'walk' ? strideTable[frame % 6]! : 0;
   const other = -stride;
   const breathe = pose === 'idle' ? [0, -1, -2, -1][frame]! : 0;
   const load = pose === 'atk' ? [-2, -4, 3, 2, -1][frame]! : 0;
@@ -69,10 +73,15 @@ export function articulateCodexFrame(spriteId: string, source: HTMLCanvasElement
     ctx.globalCompositeOperation = 'source-over';
     if (pose === 'walk') {
       ctx.clearRect(20, 68, 70, 28);
-      paintPart(ctx, source, rexFar, Math.round(stride * 4), -Math.max(0, Math.round(stride * 5)), stride * 0.18);
-      paintPart(ctx, source, rexNear, Math.round(other * 4), -Math.max(0, Math.round(other * 5)), other * 0.16);
+      // A long, weighty stride: the rear foot pushes while the forward thigh
+      // reaches.  The body never simply bobs above two identical feet.
+      paintPart(ctx, source, rexFar, Math.round(stride * 5), -Math.max(0, Math.round(stride * 4)), stride * 0.21);
+      paintPart(ctx, source, rexNear, Math.round(other * 5), -Math.max(0, Math.round(other * 4)), other * 0.19);
     }
-    const tailCounterweight = pose === 'walk' ? Math.cos(frame * Math.PI / 3) * 0.055 : 0;
+    // Jaw-held mandoble and skull remain a single head part; the tail takes
+    // the opposite torque so the silhouette reads as a massive animal, not a
+    // sword translated independently of its bite.
+    const tailCounterweight = pose === 'walk' ? -stride * 0.09 : 0;
     paintPart(ctx, source, rexTail, 0, bob, -stride * 0.12 + tailCounterweight);
     paintPart(ctx, source, rexTorso, Math.round(stride), bob, stride * 0.045);
     paintPart(ctx, source, rexHead, Math.round(stride), bob, pose === 'walk' ? stride * 0.065 : breathe * 0.02);
@@ -88,11 +97,16 @@ export function articulateCodexFrame(spriteId: string, source: HTMLCanvasElement
       ctx.clearRect(isTri ? 11 : 22, isTri ? 72 : 75, isTri ? 72 : 44, 24);
       legs.forEach((leg, i) => {
         const phase = i % 2 === 0 ? stride : other;
-        paintPart(ctx, source, leg, Math.round(phase * 4), -Math.max(0, Math.round(phase * 4)), phase * 0.18);
+        const heavy = isTri ? 5 : 3;
+        paintPart(ctx, source, leg, Math.round(phase * heavy), -Math.max(0, Math.round(phase * (isTri ? 3 : 4))), phase * (isTri ? 0.13 : 0.23));
       });
     }
     const motion = codexBodyMotion(pose, frame);
-    paintPart(ctx, source, body, motion.x, motion.y, motion.angle);
+    // Triceratops head, frill and every horn deliberately stay in `body`.
+    // This prevents level-up horn geometry from drifting away from the skull.
+    // Dodo retains a small upward launch before its feet trade support.
+    const hop = !isTri && pose === 'walk' ? [0, -2, -3, -1, 0, -1][frame % 6]! : 0;
+    paintPart(ctx, source, body, motion.x, motion.y + hop, motion.angle + (!isTri && pose === 'walk' ? stride * 0.045 : 0));
   }
   return canvas;
 }

@@ -1,3 +1,4 @@
+import { getBoonIconUrl } from '../assets/boonIcons.ts';
 import { getDinoPreviewDataUrl, getDinoPreviewFrames } from '../assets/pixelArt.ts';
 import { audioManager } from '../audio/synth.ts';
 import { AMBER_OFFER_COST, AMBER_POTION_COST, AMBER_REROLL_COST, getBuildTagCounts } from '../core/boons.ts';
@@ -7,6 +8,8 @@ import type { BuildTag, GameState, StatKey } from '../core/types.ts';
 
 export interface HudCallbacks {
   onStartRun: (classId: string, seed: string, autoCast: boolean) => void;
+  onDevLevelUp: () => void;
+  onDevStage: (index: number) => void;
   onSkillSlot: (index: number) => void;
   onUsePotion: () => void;
   onToggleAutoAttack: () => void;
@@ -40,6 +43,7 @@ export class GameHud {
   private previewAnimTimer: number | null = null;
   private previewAnimFrame = 0;
 
+  private devPanel!: HTMLDetailsElement;
   private titleEl!: HTMLDivElement;
   private hudLayer!: HTMLDivElement;
   private statusCard!: HTMLDivElement;
@@ -127,6 +131,39 @@ export class GameHud {
     joy.appendChild(knob);
     this.hudLayer.appendChild(joy);
     this.wireJoystick(joy, knob);
+
+    this.devPanel = document.createElement('details');
+    this.devPanel.id = 'dev-panel';
+    this.devPanel.open = window.innerWidth > 700;
+    const labels = this.data.names.ui;
+    this.devPanel.innerHTML = `
+      <summary>${labels.devTitle}</summary>
+      <div class="dev-controls">
+        <button class="secondary-btn" id="dev-level">${labels.devLevel} (+1)</button>
+        <label for="dev-stage">${labels.devStage}</label>
+        <select id="dev-stage"></select>
+        <p>${labels.devHint}</p>
+      </div>
+    `;
+    const stageSelect = this.devPanel.querySelector<HTMLSelectElement>('select')!;
+    this.data.mapsByFloor.forEach((map, index) => {
+      stageSelect.add(new Option(`${index + 1} · ${this.data.names.maps[map.id] ?? map.id}`, String(index)));
+    });
+    const devButton = this.devPanel.querySelector('button')!;
+    // Release focus after each action: a focused button/select keeps swallowing
+    // movement keys (the panel stops keydown propagation) and blocks WASD.
+    devButton.addEventListener('click', () => {
+      this.cb.onDevLevelUp();
+      devButton.blur();
+    });
+    stageSelect.addEventListener('change', () => {
+      this.cb.onDevStage(Number(stageSelect.value));
+      stageSelect.blur();
+    });
+    // Keep game shortcuts from stealing keyboard interaction with the panel.
+    this.devPanel.addEventListener('keydown', (event) => event.stopPropagation());
+    this.devPanel.addEventListener('pointerdown', (event) => event.stopPropagation());
+    this.hudLayer.appendChild(this.devPanel);
 
     // Modals
     this.offerModal = document.createElement('div');
@@ -399,6 +436,11 @@ export class GameHud {
     const now = performance.now();
     if (!force && now - this.lastSyncMs < 75) return;
     this.lastSyncMs = now;
+    const devDisabled = state.status !== 'playing' || state.paused || !!state.pendingOffer;
+    this.devPanel.querySelector('button')!.disabled = devDisabled;
+    const stageSelect = this.devPanel.querySelector('select')!;
+    stageSelect.disabled = devDisabled;
+    stageSelect.value = String(state.floorIndex);
 
     const derived = computeDerivedStats(state, this.data);
     const player = state.player;
@@ -489,7 +531,7 @@ export class GameHud {
       this.lastZoneId = mapDef.id;
       this.showZoneBanner(zoneDisplayName, state.floorIndex + 1, Boolean(mapDef.bossId));
     }
-    this.zoneLabelEl.textContent = `${state.floorIndex + 1}/3 · ${zoneDisplayName}`;
+    this.zoneLabelEl.textContent = `${state.floorIndex + 1}/${this.data.mapsByFloor.length} · ${zoneDisplayName}`;
     if (mapDef.bossId) {
       this.goalLabelEl.textContent = boss ? 'Objetivo: Derrota al Jefe' : '¡Victoria!';
     } else if (state.portalUnlocked) {
@@ -571,7 +613,7 @@ export class GameHud {
       window.clearTimeout(this.zoneBannerTimer);
       this.zoneBannerTimer = null;
     }
-    const sub = isBoss ? 'Santuario del Jefe · Zona Final' : `Zona descubierta · Piso ${floorNum}/3`;
+    const sub = isBoss ? 'Santuario del Jefe · Zona Final' : `Zona descubierta · Piso ${floorNum}/${this.data.mapsByFloor.length}`;
     this.zoneBannerEl.innerHTML = `
       <span class="orn-divider white left"></span>
       <div class="zone-banner-text">
@@ -693,7 +735,10 @@ export class GameHud {
               <span class="offer-cat">${catLabels[boon.category]} · ${rank}/${boon.maxRank}</span>
             </div>
             ${isSynergy ? '<div class="synergy-ribbon">★ SINERGIA CON TU BUILD</div>' : ''}
-            <h3>${info.name}</h3>
+            <div class="offer-title-row">
+              <img class="boon-icon boon-icon-offer" src="${getBoonIconUrl(bid)}" alt="" />
+              <h3>${info.name}</h3>
+            </div>
             <p>${info.desc}</p>
             <div class="offer-tags">${tagsHtml}</div>
           </button>
@@ -770,7 +815,12 @@ export class GameHud {
       .filter(([, r]) => r > 0)
       .map(([bid, r]) => {
         const info = this.data.names.boons[bid];
-        return `<div class="relic-item"><strong>${info?.name ?? bid}</strong> (Nv ${r})</div>`;
+        return `
+          <div class="relic-item">
+            <img class="boon-icon boon-icon-acquired" src="${getBoonIconUrl(bid)}" alt="" />
+            <span><strong>${info?.name ?? bid}</strong> (Nv ${r})</span>
+          </div>
+        `;
       })
       .join('');
 

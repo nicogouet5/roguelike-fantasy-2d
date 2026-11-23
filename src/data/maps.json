@@ -35,8 +35,25 @@
     ]
   },
   {
-    "id": "canon_dinoblade",
+    "id": "fortaleza_falla_23",
     "floorIndex": 2,
+    "biome": "canyon",
+    "paletteId": "fortaleza_acero_coral",
+    "width": 32,
+    "height": 30,
+    "targetKills": 16,
+    "maxMobs": 16,
+    "eliteChance": 0.25,
+    "bgColor": "#102838",
+    "mobs": [
+      { "mobId": "pachy_ram", "weight": 30 },
+      { "mobId": "obsidian_ankylo", "weight": 30 },
+      { "mobId": "ash_carno", "weight": 40 }
+    ]
+  },
+  {
+    "id": "canon_dinoblade",
+    "floorIndex": 3,
     "biome": "canyon",
     "paletteId": "osario_hueso_petroleo",
     "width": 26,

@@ -143,7 +143,11 @@ export function createGameState(
 }
 
 export function transitionToNextZone(state: GameState, data: GameData): boolean {
-  const nextFloor = state.floorIndex + 1;
+  return enterZone(state, data, state.floorIndex + 1);
+}
+
+export function enterZone(state: GameState, data: GameData, nextFloor: number): boolean {
+  if (!Number.isInteger(nextFloor) || nextFloor < 0) return false;
   const nextMap = data.mapsByFloor[nextFloor];
   if (!nextMap) return false;
 
