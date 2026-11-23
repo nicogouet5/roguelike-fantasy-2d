@@ -32,6 +32,8 @@ export class GameHud {
   private muted = false;
   private lastOfferKey = '';
   private lastStatus = '';
+  private lastZoneId = '';
+  private zoneBannerTimer: number | null = null;
   private lastState: GameState | null = null;
   private lastSyncMs = 0;
   private previewAnimTimer: number | null = null;
@@ -41,6 +43,7 @@ export class GameHud {
   private hudLayer!: HTMLDivElement;
   private statusCard!: HTMLDivElement;
   private bossBarEl!: HTMLDivElement;
+  private zoneBannerEl!: HTMLDivElement;
   private minimapWrap!: HTMLDivElement;
   private minimapCanvas!: HTMLCanvasElement;
   private zoneLabelEl!: HTMLDivElement;
@@ -85,6 +88,10 @@ export class GameHud {
     this.bossBarEl.id = 'boss-bar';
     this.bossBarEl.style.display = 'none';
     this.hudLayer.appendChild(this.bossBarEl);
+
+    this.zoneBannerEl = document.createElement('div');
+    this.zoneBannerEl.id = 'zone-banner';
+    this.hudLayer.appendChild(this.zoneBannerEl);
 
     this.minimapWrap = document.createElement('div');
     this.minimapWrap.id = 'minimap-card';
@@ -224,8 +231,12 @@ export class GameHud {
       <div class="title-panel">
         <div class="title-header">
           <div class="title-badge">PIXEL ART · 2D ISOMÉTRICO</div>
-          <h1>${this.data.names.ui.title}</h1>
-          <p class="title-sub">Elige tu especie de dinosaurio y empuña tu arma contra el Spinosaurus Hoja-Abisal.</p>
+          <div class="fantasy-heading">
+            <span class="orn-divider left"></span>
+            <h1>${this.data.names.ui.title}</h1>
+            <span class="orn-divider right"></span>
+          </div>
+          <p class="title-sub">Elige tu especie prehistórica y empuña tu arma contra el Spinosaurus Hoja-Abisal.</p>
         </div>
 
         <div class="dino-grid">${cardsHtml}</div>
@@ -306,6 +317,8 @@ export class GameHud {
     this.escOpen = false;
     this.lastOfferKey = '';
     this.lastStatus = '';
+    this.lastZoneId = '';
+    this.zoneBannerEl.classList.remove('show');
     this.statsDrawer.style.display = 'none';
     this.escModal.style.display = 'none';
     this.offerModal.style.display = 'none';
@@ -467,8 +480,13 @@ export class GameHud {
       this.bossBarEl.style.display = 'none';
     }
 
-    // Minimap + Zone Info
-    this.zoneLabelEl.textContent = `${state.floorIndex + 1}/3 · ${this.data.names.maps[mapDef.id]}`;
+    // Minimap + Zone Info + Dark-Fantasy Location Discovered Banner
+    const zoneDisplayName = this.data.names.maps[mapDef.id] ?? mapDef.id;
+    if (mapDef.id !== this.lastZoneId) {
+      this.lastZoneId = mapDef.id;
+      this.showZoneBanner(zoneDisplayName, state.floorIndex + 1, Boolean(mapDef.bossId));
+    }
+    this.zoneLabelEl.textContent = `${state.floorIndex + 1}/3 · ${zoneDisplayName}`;
     if (mapDef.bossId) {
       this.goalLabelEl.textContent = boss ? 'Objetivo: Derrota al Jefe' : '¡Victoria!';
     } else if (state.portalUnlocked) {
@@ -543,6 +561,29 @@ export class GameHud {
         this.summaryModal.style.display = 'none';
       }
     }
+  }
+
+  private showZoneBanner(zoneName: string, floorNum: number, isBoss: boolean): void {
+    if (this.zoneBannerTimer !== null) {
+      window.clearTimeout(this.zoneBannerTimer);
+      this.zoneBannerTimer = null;
+    }
+    const sub = isBoss ? 'Santuario del Jefe · Zona Final' : `Zona descubierta · Piso ${floorNum}/3`;
+    this.zoneBannerEl.innerHTML = `
+      <span class="orn-divider white left"></span>
+      <div class="zone-banner-text">
+        <div class="zone-banner-sub">${sub}</div>
+        <div class="zone-banner-title">${zoneName}</div>
+      </div>
+      <span class="orn-divider white right"></span>
+    `;
+    this.zoneBannerEl.classList.remove('show');
+    void this.zoneBannerEl.offsetWidth;
+    this.zoneBannerEl.classList.add('show');
+    this.zoneBannerTimer = window.setTimeout(() => {
+      this.zoneBannerEl.classList.remove('show');
+      this.zoneBannerTimer = null;
+    }, 3200);
   }
 
   private drawMinimap(state: GameState): void {
@@ -665,7 +706,11 @@ export class GameHud {
 
     this.offerModal.innerHTML = `
       <div class="modal-card offer-wrap">
-        <h2>${title}</h2>
+        <div class="fantasy-heading compact">
+          <span class="orn-divider left"></span>
+          <h2>${title}</h2>
+          <span class="orn-divider right"></span>
+        </div>
         ${buildBarHtml}
         <div class="offer-grid">${cards}</div>
         <div class="offer-footer">
