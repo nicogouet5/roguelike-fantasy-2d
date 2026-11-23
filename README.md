@@ -1,4 +1,4 @@
-# DinoBlade: Reino Jurásico
+# DinoLike: Reino Jurásico
 
 Action roguelite **2D isométrico en pixel art** hecho con **TypeScript (strict)**, **Vite**, **Phaser 4.2.1**, **Zod** y **Web Audio API**.
 
