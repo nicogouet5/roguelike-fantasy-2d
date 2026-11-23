@@ -541,6 +541,12 @@ body,
   color: #bae6fd;
 }
 
+.buff-chip.food {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: #4ade80;
+  color: #bbf7d0;
+}
+
 .toggle-pills {
   display: flex;
   flex-wrap: wrap;
@@ -698,7 +704,7 @@ body,
 
 .slot-btn {
   position: relative;
-  min-width: 120px;
+  min-width: 110px;
   padding: 5px 8px;
   background: rgba(15, 21, 29, 0.94);
   border: 9px solid transparent;
@@ -717,8 +723,27 @@ body,
   border-image-source: url('./assets/ui/slot-white.png');
 }
 
+.slot-btn.dash {
+  border-image-source: url('./assets/ui/slot-white.png');
+  box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.22);
+}
+
+.slot-btn.ultimate {
+  border-image-source: url('./assets/ui/slot-gold.png');
+  background: rgba(36, 22, 10, 0.96);
+}
+
+.slot-btn.ultimate.ready {
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.45);
+}
+
 .slot-btn.potion {
   border-image-source: url('./assets/ui/slot-gold.png');
+}
+
+.slot-btn.potion-last .slot-meta {
+  color: #fb923c;
+  font-weight: 700;
 }
 
 .slot-btn.dim {

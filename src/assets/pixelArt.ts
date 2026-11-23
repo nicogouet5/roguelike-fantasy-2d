@@ -1480,6 +1480,84 @@ function drawSmallIcon(
   return g.toCanvas(2);
 }
 
+function drawFoodIcon(
+  kind: 'completo_italiano' | 'completo' | 'as' | 'salchipapas' | 'sopaipilla' | 'chancaca'
+): HTMLCanvasElement {
+  const g = new PixelGrid(16, 16);
+  const bun = makeRamp('#b45309', '#d97706', '#f59e0b', '#fde68a');
+  const sausage = makeRamp('#7f1d1d', '#b91c1c', '#ef4444');
+  const meat = makeRamp('#451a03', '#78350f', '#92400e');
+  const tomato = hexToU32('#ef4444');
+  const palta = hexToU32('#4ade80');
+  const paltaD = hexToU32('#16a34a');
+  const mayo = hexToU32('#fefce8');
+  const chucrut = hexToU32('#fde047');
+
+  if (kind === 'completo_italiano') {
+    // Classic Chilean Completo Italiano: golden bun + vienesa + tomate rojo + palta verde + mayo blanca!
+    g.shadedEllipse(8, 10, 6.2, 3.0, bun);
+    g.rect(2, 8, 12, 2, sausage.mid);
+    g.rect(3, 7, 10, 1, tomato);
+    g.rect(3, 5, 10, 2, palta);
+    g.px(4, 6, paltaD);
+    g.px(11, 6, paltaD);
+    g.px(4, 5, mayo);
+    g.px(6, 4, mayo);
+    g.px(8, 5, mayo);
+    g.px(10, 4, mayo);
+    g.px(12, 5, mayo);
+  } else if (kind === 'completo') {
+    // Completo clásico: pan + vienesa + tomate + chucrut + mayo
+    g.shadedEllipse(8, 10, 6.2, 3.0, bun);
+    g.rect(2, 8, 12, 2, sausage.mid);
+    g.rect(3, 7, 10, 1, tomato);
+    g.rect(3, 5, 10, 2, chucrut);
+    g.px(5, 5, mayo);
+    g.px(8, 4, mayo);
+    g.px(11, 5, mayo);
+  } else if (kind === 'as') {
+    // As Italiano: pan + carne churrasco + tomate + palta + mayo
+    g.shadedEllipse(8, 10, 6.3, 3.1, bun);
+    g.rect(2, 8, 12, 2, meat.mid);
+    g.px(4, 8, meat.light);
+    g.px(9, 8, meat.light);
+    g.rect(3, 7, 10, 1, tomato);
+    g.rect(3, 5, 10, 2, palta);
+    g.px(5, 4, mayo);
+    g.px(8, 5, mayo);
+    g.px(11, 4, mayo);
+  } else if (kind === 'salchipapas') {
+    // Cajita roja con papas fritas doradas + rodajas de vienesa + ketchup/mayo
+    g.rect(4, 9, 8, 5, hexToU32('#dc2626'));
+    g.rect(5, 10, 6, 3, hexToU32('#ef4444'));
+    g.rect(4, 4, 2, 5, C_GOLD_L);
+    g.rect(7, 3, 2, 6, C_GOLD_M);
+    g.rect(10, 4, 2, 5, C_GOLD_L);
+    g.rect(5, 6, 2, 2, sausage.light);
+    g.rect(9, 6, 2, 2, sausage.light);
+    g.px(7, 7, mayo);
+    g.px(8, 5, tomato);
+  } else if (kind === 'sopaipilla') {
+    // Sopaipilla dorada de zapallo con hoyitos de tenedor
+    g.shadedEllipse(8, 8, 5.6, 4.4, makeRamp('#b45309', '#f59e0b', '#facc15', '#fef08a'));
+    g.px(6, 7, hexToU32('#92400e'));
+    g.px(9, 7, hexToU32('#92400e'));
+    g.px(7, 9, hexToU32('#92400e'));
+    g.px(10, 9, hexToU32('#92400e'));
+  } else {
+    // Sopaipillas pasadas con chancaca caliente y cáscara de naranja
+    g.shadedEllipse(8, 11, 6.2, 3.0, makeRamp('#451a03', '#78350f', '#92400e'));
+    g.shadedEllipse(8, 8, 4.6, 3.2, makeRamp('#92400e', '#d97706', '#f59e0b'));
+    g.px(6, 7, hexToU32('#78350f'));
+    g.px(9, 8, hexToU32('#78350f'));
+    g.rect(6, 5, 3, 1, hexToU32('#fb923c'));
+    g.px(10, 6, C_GOLD_L);
+  }
+
+  g.outline('#111116');
+  return g.toCanvas(2);
+}
+
 const previewFramesCache = new Map<string, string[]>();
 
 export function clearDinoPreviewCache(): void {
@@ -1611,6 +1689,17 @@ export function buildPixelAtlas(scene: Phaser.Scene): void {
     'ring',
   ] as const) {
     entries.push([`fx_${icon}`, drawSmallIcon(icon)]);
+  }
+
+  for (const food of [
+    'completo_italiano',
+    'completo',
+    'as',
+    'salchipapas',
+    'sopaipilla',
+    'chancaca',
+  ] as const) {
+    entries.push([`food_${food}`, drawFoodIcon(food)]);
   }
 
   // Pack cleanly into a 2048-wide single WebGL texture atlas

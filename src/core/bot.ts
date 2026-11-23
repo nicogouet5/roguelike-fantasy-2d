@@ -52,15 +52,16 @@ export function runHeadlessBot(
     if (danger) {
       moveX = state.player.x - danger.x || 1;
       moveY = state.player.y - danger.y || 1;
-    } else if (state.portalUnlocked && state.floorIndex < data.mapsByFloor.length - 1) {
-      moveX = state.zone.portal.x - state.player.x;
-      moveY = state.zone.portal.y - state.player.y;
     } else {
       const chest = state.drops.find((d) => d.kind === 'chest');
+      const food = state.player.hp < derived.maxHp * 0.7 ? state.drops.find((d) => d.kind === 'food') : undefined;
       const targetMob = findNearestMob(state);
       if (chest) {
         moveX = chest.x - state.player.x;
         moveY = chest.y - state.player.y;
+      } else if (food) {
+        moveX = food.x - state.player.x;
+        moveY = food.y - state.player.y;
       } else if (targetMob) {
         const dx = targetMob.x - state.player.x;
         const dy = targetMob.y - state.player.y;

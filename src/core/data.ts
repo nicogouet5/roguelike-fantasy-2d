@@ -2,6 +2,7 @@ import { z } from 'zod';
 import boonsJson from '../data/boons.json';
 import classesJson from '../data/classes.json';
 import elementsJson from '../data/elements.json';
+import foodsJson from '../data/foods.json';
 import mapsJson from '../data/maps.json';
 import mapPalettesJson from '../data/mapPalettes.json';
 import mobsJson from '../data/mobs.json';
@@ -13,6 +14,7 @@ import type {
   BoonDef,
   DinoClassDef,
   ElementName,
+  FoodDef,
   MapDef,
   MapPaletteDef,
   MobDef,
@@ -117,7 +119,9 @@ const classSchema = z.object({
   }),
   statGrowth: z.array(statEnum).min(1),
   basicSkillId: z.string().min(1),
-  activeSkillIds: z.array(z.string().min(1)).length(3),
+  dashSkillId: z.string().min(1),
+  activeSkillIds: z.array(z.string().min(1)).length(2),
+  ultimateSkillId: z.string().min(1),
 });
 
 const skillSchema = z.object({
@@ -134,8 +138,10 @@ const skillSchema = z.object({
     'ground_aoe',
     'evade_shot',
     'telegraph_aoe',
+    'ultimate_flurry',
   ]),
   isPhysical: z.boolean(),
+  isUltimate: z.boolean().optional(),
   element: elementEnum,
   targetType: z.enum(['direction', 'tile', 'self']),
   spCost: z.number().nonnegative(),
@@ -202,6 +208,9 @@ const mapSchema = z.object({
   width: z.number().int().min(16),
   height: z.number().int().min(16),
   targetKills: z.number().int().positive(),
+  totalWaves: z.number().int().positive(),
+  waveIntervalMs: z.number().int().nonnegative(),
+  mobsPerWave: z.number().int().positive(),
   maxMobs: z.number().int().positive(),
   eliteChance: z.number().min(0).max(1),
   bgColor: z.string().min(4),
@@ -252,6 +261,19 @@ const relicSchema = z.object({
   statMods: boonModsSchema,
 });
 
+const foodSchema = z.object({
+  id: z.string().min(1),
+  spriteFrame: z.string().min(1),
+  weight: z.number().positive(),
+  healRatio: z.number().min(0).max(1),
+  spRatio: z.number().min(0).max(1),
+  buffId: z
+    .enum(['food_italiano', 'food_as', 'food_salchipapas', 'food_sopaipilla', 'food_chancaca'])
+    .optional(),
+  buffDurationMs: z.number().positive().optional(),
+  color: z.string().min(4),
+});
+
 const elementsSchema = z.object({
   elements: z.array(elementEnum).length(6),
   matrix: z.record(elementEnum, z.record(elementEnum, z.number().positive())),
@@ -277,6 +299,7 @@ const namesSchema = z.object({
   maps: z.record(z.string(), z.string().min(1)),
   boons: z.record(z.string(), nameDescSchema),
   relics: z.record(z.string(), nameDescSchema),
+  foods: z.record(z.string(), nameDescSchema),
 });
 
 export type NamesEs = z.infer<typeof namesSchema>;
@@ -297,6 +320,8 @@ export interface GameData {
   boonsById: Record<string, BoonDef>;
   relics: RelicDef[];
   relicsById: Record<string, RelicDef>;
+  foods: FoodDef[];
+  foodsById: Record<string, FoodDef>;
   names: NamesEs;
 }
 
@@ -313,6 +338,7 @@ export function loadGameData(): GameData {
   const mapPalettes = z.array(mapPaletteSchema).min(4).parse(mapPalettesJson) as MapPaletteDef[];
   const boons = z.array(boonSchema).min(10).parse(boonsJson) as BoonDef[];
   const relics = z.array(relicSchema).min(5).parse(relicsJson) as RelicDef[];
+  const foods = z.array(foodSchema).min(4).parse(foodsJson) as FoodDef[];
   const names = namesSchema.parse(namesEsJson);
 
   const classesById = Object.fromEntries(classes.map((c) => [c.id, c]));
@@ -320,6 +346,7 @@ export function loadGameData(): GameData {
   const mobsById = Object.fromEntries(mobs.map((m) => [m.id, m]));
   const boonsById = Object.fromEntries(boons.map((b) => [b.id, b]));
   const relicsById = Object.fromEntries(relics.map((r) => [r.id, r]));
+  const foodsById = Object.fromEntries(foods.map((f) => [f.id, f]));
   const mapsByFloor = [...maps].sort((a, b) => a.floorIndex - b.floorIndex);
   const mapPalettesById = Object.fromEntries(mapPalettes.map((palette) => [palette.id, palette]));
 
@@ -327,6 +354,12 @@ export function loadGameData(): GameData {
   for (const cls of classes) {
     if (!skillsById[cls.basicSkillId]) {
       throw new Error(`Missing basicSkillId ${cls.basicSkillId} for class ${cls.id}`);
+    }
+    if (!skillsById[cls.dashSkillId]) {
+      throw new Error(`Missing dashSkillId ${cls.dashSkillId} for class ${cls.id}`);
+    }
+    if (!skillsById[cls.ultimateSkillId]) {
+      throw new Error(`Missing ultimateSkillId ${cls.ultimateSkillId} for class ${cls.id}`);
     }
     for (const sid of cls.activeSkillIds) {
       if (!skillsById[sid]) throw new Error(`Missing skill ${sid} for class ${cls.id}`);
@@ -363,6 +396,9 @@ export function loadGameData(): GameData {
   for (const relic of relics) {
     if (!names.relics[relic.id]) throw new Error(`Missing Spanish name for relic ${relic.id}`);
   }
+  for (const food of foods) {
+    if (!names.foods[food.id]) throw new Error(`Missing Spanish name for food ${food.id}`);
+  }
 
   cachedData = {
     elements: parsedElements.elements,
@@ -380,6 +416,8 @@ export function loadGameData(): GameData {
     boonsById,
     relics,
     relicsById,
+    foods,
+    foodsById,
     names,
   };
   return cachedData;

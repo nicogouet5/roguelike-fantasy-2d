@@ -130,6 +130,8 @@ export class GameScene extends Phaser.Scene {
       this.input.keyboard.on('keydown-ONE', () => this.handleNumberKey(0));
       this.input.keyboard.on('keydown-TWO', () => this.handleNumberKey(1));
       this.input.keyboard.on('keydown-THREE', () => this.handleNumberKey(2));
+      this.input.keyboard.on('keydown-SPACE', () => this.triggerDash());
+      this.input.keyboard.on('keydown-E', () => this.triggerUltimate());
       this.input.keyboard.on('keydown-Q', () => this.handleUsePotion());
       this.input.keyboard.on('keydown-C', () => this.hud?.toggleStatsDrawer());
       this.input.keyboard.on('keydown-R', () => this.handleToggleAutoCast());
@@ -190,6 +192,10 @@ export class GameScene extends Phaser.Scene {
       }
       return;
     }
+    if (idx === 2) {
+      this.triggerUltimate();
+      return;
+    }
     this.triggerSkillSlot(idx);
   }
 
@@ -201,6 +207,22 @@ export class GameScene extends Phaser.Scene {
     if (!skillId) return;
     const target = this.getBestSkillTarget();
     cast(this.state, this.gameData, 'player', skillId, target);
+  }
+
+  triggerDash(): void {
+    if (!this.state || this.state.paused || this.state.status !== 'playing') return;
+    audioManager.unlock();
+    const cls = this.gameData.classesById[this.state.player.classId]!;
+    const target = this.getBestSkillTarget();
+    cast(this.state, this.gameData, 'player', cls.dashSkillId, target);
+  }
+
+  triggerUltimate(): void {
+    if (!this.state || this.state.paused || this.state.status !== 'playing') return;
+    audioManager.unlock();
+    const cls = this.gameData.classesById[this.state.player.classId]!;
+    const target = this.getBestSkillTarget();
+    cast(this.state, this.gameData, 'player', cls.ultimateSkillId, target);
   }
 
   handleUsePotion(): void {
@@ -323,7 +345,7 @@ export class GameScene extends Phaser.Scene {
       this,
       zone,
       palette,
-      zone.floorIndex < this.gameData.mapsByFloor.length - 1
+      false
     );
     this.tileGroup = mapVisuals.tiles;
     this.propSprites = mapVisuals.props;
@@ -746,14 +768,18 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Drops (Potions, Amber, Chests)
+    // Drops (Potions, Amber, Chests, Chilean Fast Food)
     const dropIds = new Set<string>();
     for (const d of state.drops) {
       dropIds.add(d.id);
       let sp = this.dropSprites.get(d.id);
       if (!sp) {
-        sp = this.add.sprite(0, 0, ATLAS_KEY, `fx_${d.kind}`);
-        sp.setScale(d.kind === 'chest' ? 1.45 : 1.05);
+        const frame =
+          d.kind === 'food' && d.foodId
+            ? (this.gameData.foodsById[d.foodId]?.spriteFrame ?? 'fx_potion')
+            : `fx_${d.kind}`;
+        sp = this.add.sprite(0, 0, ATLAS_KEY, frame);
+        sp.setScale(d.kind === 'chest' ? 1.45 : d.kind === 'food' ? 1.3 : 1.05);
         this.dropSprites.set(d.id, sp);
       }
       const pos = gridToScreen(d.x, d.y);

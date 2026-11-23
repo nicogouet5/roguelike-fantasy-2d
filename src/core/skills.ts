@@ -270,9 +270,29 @@ export function handleMobDeath(state: GameState, data: GameData, mob: MobEntity)
     isElite: mob.isElite,
   });
 
-  // Drops
+  // Drops: Chilean fast food drops (~34% normal mobs, 100% elites) + occasional potions!
   const rng = nextCombatRng(state);
-  if (mob.isElite || rng.next() < 0.22) {
+  if (mob.isElite || rng.next() < 0.34) {
+    let totalW = 0;
+    for (const f of data.foods) totalW += f.weight;
+    let roll = rng.float(0, totalW);
+    let pickedFood = data.foods[0]!;
+    for (const f of data.foods) {
+      roll -= f.weight;
+      if (roll <= 0) {
+        pickedFood = f;
+        break;
+      }
+    }
+    state.drops.push({
+      id: `drop_${state.nextEntityId++}`,
+      kind: 'food',
+      foodId: pickedFood.id,
+      x: mob.x + rng.float(-0.35, 0.35),
+      y: mob.y + rng.float(-0.35, 0.35),
+      amount: 1,
+    });
+  } else if (rng.next() < 0.14) {
     state.drops.push({
       id: `drop_${state.nextEntityId++}`,
       kind: 'potion',
@@ -316,14 +336,13 @@ export function handleMobDeath(state: GameState, data: GameData, mob: MobEntity)
   }
 
   // Kill chest trigger
-  const mapDef = data.mapsByFloor[state.floorIndex]!;
   const chestThreshold = 12 + state.floorIndex * 4;
   if (!mob.isBoss && state.killsSinceChest >= chestThreshold) {
     state.killsSinceChest = 0;
     spawnAmberChestNearPlayer(state);
   }
 
-  // Unlock zone portal or victory
+  // Unlock boss victory (non-boss floors now advance automatically after clearing timed waves!)
   if (mob.isBoss) {
     state.stats.floorsCleared += 1;
     state.status = 'victory';
@@ -336,16 +355,6 @@ export function handleMobDeath(state: GameState, data: GameData, mob: MobEntity)
       color: '#fde047',
     });
     state.events.push({ type: 'sfx', sfx: 'victory' });
-  } else if (!state.portalUnlocked && state.zoneKills >= mapDef.targetKills) {
-    state.portalUnlocked = true;
-    state.events.push({
-      type: 'notice',
-      x: state.player.x,
-      y: state.player.y,
-      text: '¡Portal Abierto! Avanza al este',
-      color: '#38bdf8',
-    });
-    state.events.push({ type: 'sfx', sfx: 'portal' });
   }
 }
 
@@ -538,6 +547,7 @@ function castPlayerSkill(
         for (let h = 0; h < hitCount; h++) {
           if (mob.hp <= 0) break;
           const res = damageMob(state, data, mob, rawDamage, skill.element, skill.isPhysical, {
+            ignoreDefRatio: skill.ignoreDefRatio,
             knockback: h === hitCount - 1 ? skill.knockback : 0,
             stunMs: skill.stunMs,
             bleedMs: skill.bleedMs,
@@ -545,6 +555,16 @@ function castPlayerSkill(
           hits += 1;
           totalDamage += res.dealt;
         }
+      }
+      if (skill.isUltimate) {
+        state.events.push({
+          type: 'impact',
+          x: player.x + dirX * 2.2,
+          y: player.y + dirY * 2.2,
+          radius: reach * 0.75,
+          element: skill.element,
+          heavy: true,
+        });
       }
       break;
     }
@@ -687,6 +707,66 @@ function castPlayerSkill(
           totalDamage += res.dealt;
         }
       }
+      if (skill.buffId && skill.buffDurationMs) {
+        addPlayerBuff(state, skill.buffId, skill.buffDurationMs);
+      }
+      if (skill.isUltimate) {
+        state.events.push({
+          type: 'impact',
+          x: dest.x,
+          y: dest.y,
+          radius: hitRadius * 1.65,
+          element: skill.element,
+          heavy: true,
+        });
+      }
+      break;
+    }
+
+    case 'ultimate_flurry': {
+      // Velociraptor Ultimate: Danza de los Mil Cortes — invulnerable + 7 guaranteed-crit chain slashes!
+      const totalHits = skill.hits ?? 7;
+      const searchRange = skill.range * derived.areaMult;
+      player.invulnMs = Math.max(player.invulnMs, 1500);
+      let curX = player.x;
+      let curY = player.y;
+
+      for (let step = 0; step < totalHits; step++) {
+        const candidates = state.mobs.filter(
+          (m) => m.hp > 0 && Math.hypot(m.x - player.x, m.y - player.y) <= searchRange
+        );
+        if (candidates.length === 0) break;
+        const picked = candidates[step % candidates.length]!;
+        state.events.push({
+          type: 'dash_trail',
+          fromX: curX,
+          fromY: curY,
+          toX: picked.x,
+          toY: picked.y,
+          spriteId: cls.spriteId,
+          element: skill.element,
+        });
+        state.events.push({
+          type: 'slash',
+          x: picked.x,
+          y: picked.y,
+          angle: Math.atan2(picked.y - curY, picked.x - curX),
+          radius: 2.2,
+          element: skill.element,
+          weaponType: cls.weaponType,
+          fromPlayer: true,
+        });
+        curX = picked.x;
+        curY = picked.y;
+        const res = damageMob(state, data, picked, rawDamage, skill.element, skill.isPhysical, {
+          forceCrit: true,
+          bleedMs: skill.bleedMs,
+        });
+        hits += 1;
+        totalDamage += res.dealt;
+      }
+      state.events.push({ type: 'sfx', sfx: 'dash' });
+      state.events.push({ type: 'impact', x: curX, y: curY, radius: 2.5, element: skill.element, heavy: true });
       break;
     }
 
@@ -758,11 +838,13 @@ function castPlayerSkill(
 
     case 'volley': {
       const count = (skill.count ?? 3) + derived.extraProjectiles;
+      const isFullCircle = (skill.spreadDeg ?? 32) >= 350;
       const spreadRad = ((skill.spreadDeg ?? 32) * Math.PI) / 180;
       const speed = skill.speed ?? 14;
       for (let i = 0; i < count; i++) {
-        const frac = count === 1 ? 0 : i / (count - 1) - 0.5;
-        const a = angle + frac * spreadRad;
+        const a = isFullCircle
+          ? angle + (i / count) * Math.PI * 2
+          : angle + (count === 1 ? 0 : i / (count - 1) - 0.5) * spreadRad;
         state.projectiles.push({
           id: `proj_${state.nextEntityId++}`,
           ownerId: 'player',
@@ -784,6 +866,9 @@ function castPlayerSkill(
           hitIds: [],
           visual: projectileVisual(skill),
         });
+      }
+      if (skill.buffId && skill.buffDurationMs) {
+        addPlayerBuff(state, skill.buffId, skill.buffDurationMs);
       }
       break;
     }

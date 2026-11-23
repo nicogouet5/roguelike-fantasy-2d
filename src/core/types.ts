@@ -29,7 +29,8 @@ export type SkillTemplate =
   | 'volley'
   | 'ground_aoe'
   | 'evade_shot'
-  | 'telegraph_aoe';
+  | 'telegraph_aoe'
+  | 'ultimate_flurry';
 
 export type BuffId =
   | 'tyrant_fury'
@@ -38,7 +39,12 @@ export type BuffId =
   | 'sky_tailwind'
   | 'boss_enrage'
   | 'codex_overclock'
-  | 'codex_shield';
+  | 'codex_shield'
+  | 'food_italiano'
+  | 'food_as'
+  | 'food_salchipapas'
+  | 'food_sopaipilla'
+  | 'food_chancaca';
 
 export type SfxKind =
   | 'greatsword'
@@ -130,13 +136,16 @@ export interface DinoClassDef {
   baseStats: PrimaryStats;
   statGrowth: StatKey[];
   basicSkillId: string;
+  dashSkillId: string;
   activeSkillIds: string[];
+  ultimateSkillId: string;
 }
 
 export interface SkillDef {
   id: string;
   template: SkillTemplate;
   isPhysical: boolean;
+  isUltimate?: boolean;
   element: ElementName;
   targetType: 'direction' | 'tile' | 'self';
   spCost: number;
@@ -198,6 +207,9 @@ export interface MapDef {
   width: number;
   height: number;
   targetKills: number;
+  totalWaves: number;
+  waveIntervalMs: number;
+  mobsPerWave: number;
   maxMobs: number;
   eliteChance: number;
   bgColor: string;
@@ -392,12 +404,24 @@ export interface TelegraphEntity {
   waveIntervalMs: number;
 }
 
+export interface FoodDef {
+  id: string;
+  spriteFrame: string;
+  weight: number;
+  healRatio: number;
+  spRatio: number;
+  buffId?: BuffId;
+  buffDurationMs?: number;
+  color: string;
+}
+
 export interface DropEntity {
   id: string;
-  kind: 'potion' | 'amber' | 'chest';
+  kind: 'potion' | 'amber' | 'chest' | 'food';
   x: number;
   y: number;
   amount: number;
+  foodId?: string;
 }
 
 export interface PropEntity {
@@ -554,6 +578,11 @@ export interface GameState {
   floorIndex: number;
   zoneKills: number;
   portalUnlocked: boolean;
+  currentWave: number;
+  totalWaves: number;
+  waveTimerMs: number;
+  waveEarlyBonusPaid: boolean;
+  zoneClearDelayMs: number;
   zone: ZoneMap;
   player: PlayerEntity;
   pet: PetEntity;

@@ -18,32 +18,34 @@ function pickWeightedMob(mapDef: MapDef, rng: ReturnType<typeof createRng>): str
   return mapDef.mobs[0]!.mobId;
 }
 
-function populateZoneMobs(state: GameState, data: GameData, mapDef: MapDef): void {
-  state.mobs = [];
+function spawnWaveMobs(state: GameState, data: GameData, mapDef: MapDef, count: number): void {
   const rng = createRng(state.rngCombatState);
-
-  if (mapDef.bossId) {
-    const cx = mapDef.width * 0.52;
-    const cy = mapDef.height * 0.48;
-    spawnMob(state, data, mapDef.bossId, cx, cy, false);
-    state.rngCombatState = rng.getState();
-    return;
-  }
-
-  const initialCount = Math.max(6, Math.round(mapDef.maxMobs * 0.8));
-  for (let i = 0; i < initialCount; i++) {
+  for (let i = 0; i < count; i++) {
+    if (state.mobs.length >= mapDef.maxMobs) break;
     for (let tries = 0; tries < 25; tries++) {
       const mx = rng.int(4, state.zone.width - 5) + 0.5;
       const my = rng.int(4, state.zone.height - 5) + 0.5;
       if (!isWalkable(state.zone, mx, my)) continue;
-      if (Math.hypot(mx - state.player.x, my - state.player.y) < 7.0) continue;
+      if (Math.hypot(mx - state.player.x, my - state.player.y) < 6.8) continue;
       const mobId = pickWeightedMob(mapDef, rng);
-      const isElite = rng.next() < mapDef.eliteChance;
+      const waveEliteBonus = state.currentWave >= mapDef.totalWaves ? 0.12 : 0;
+      const isElite = rng.next() < mapDef.eliteChance + waveEliteBonus;
       spawnMob(state, data, mobId, mx, my, isElite);
       break;
     }
   }
   state.rngCombatState = rng.getState();
+}
+
+function populateZoneMobs(state: GameState, data: GameData, mapDef: MapDef): void {
+  state.mobs = [];
+  if (mapDef.bossId) {
+    const cx = mapDef.width * 0.52;
+    const cy = mapDef.height * 0.48;
+    spawnMob(state, data, mapDef.bossId, cx, cy, false);
+    return;
+  }
+  spawnWaveMobs(state, data, mapDef, mapDef.mobsPerWave);
 }
 
 export function createGameState(
@@ -70,6 +72,11 @@ export function createGameState(
     floorIndex,
     zoneKills: 0,
     portalUnlocked: false,
+    currentWave: 1,
+    totalWaves: mapDef.totalWaves,
+    waveTimerMs: mapDef.waveIntervalMs,
+    waveEarlyBonusPaid: false,
+    zoneClearDelayMs: 0,
     zone,
     player: {
       id: 'player',
@@ -151,6 +158,11 @@ export function transitionToNextZone(state: GameState, data: GameData): boolean 
   state.floorIndex = nextFloor;
   state.zoneKills = 0;
   state.portalUnlocked = false;
+  state.currentWave = 1;
+  state.totalWaves = nextMap.totalWaves;
+  state.waveTimerMs = nextMap.waveIntervalMs;
+  state.waveEarlyBonusPaid = false;
+  state.zoneClearDelayMs = 0;
   state.zone = generateZoneMap(nextMap, state.seed);
   state.player.x = state.zone.spawn.x;
   state.player.y = state.zone.spawn.y;
@@ -347,12 +359,13 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
   if (nearest) {
     const dist = Math.hypot(nearest.x - player.x, nearest.y - player.y);
     if (player.autoCast) {
-      for (const sid of cls.activeSkillIds) {
+      const castList = [cls.ultimateSkillId, ...cls.activeSkillIds, cls.dashSkillId];
+      for (const sid of castList) {
         const sk = data.skillsById[sid]!;
         if ((player.skillCooldowns[sid] ?? 0) > 0 || player.sp < sk.spCost) continue;
         if (sk.targetType === 'self') {
           if (sk.healRatio && player.hp > derived.maxHp * 0.72) continue;
-          if (dist <= (sk.radius ?? 4.2)) {
+          if (dist <= (sk.radius ?? sk.range ?? 4.8)) {
             cast(state, data, 'player', sid, { x: nearest.x, y: nearest.y });
             break;
           }
@@ -452,10 +465,10 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
   stepMobsAi(state, data, clampedDt);
   state.mobs = state.mobs.filter((m) => m.hp > 0);
 
-  // Pickups
+  // Pickups (including auto-consumed Chilean fast-food drops!)
   for (let i = state.drops.length - 1; i >= 0; i--) {
     const drop = state.drops[i]!;
-    if (Math.hypot(drop.x - player.x, drop.y - player.y) > 1.25) continue;
+    if (Math.hypot(drop.x - player.x, drop.y - player.y) > 1.35) continue;
     state.drops.splice(i, 1);
     if (drop.kind === 'potion') {
       player.potions += drop.amount;
@@ -468,32 +481,83 @@ export function stepGame(state: GameState, data: GameData, dtMs: number, input: 
       state.stats.chestsOpened += 1;
       state.events.push({ type: 'sfx', sfx: 'chest' });
       enqueueOffer(state, data, 'chest');
-    }
-  }
-
-  // Respawn non-boss zones to keep action lively
-  const mapDef = data.mapsByFloor[state.floorIndex]!;
-  if (!mapDef.bossId && state.mobs.length < mapDef.maxMobs) {
-    state.respawnTimerMs -= clampedDt;
-    if (state.respawnTimerMs <= 0) {
-      state.respawnTimerMs = 2600;
-      const rng = createRng(state.rngCombatState);
-      for (let tries = 0; tries < 20; tries++) {
-        const mx = rng.int(4, state.zone.width - 5) + 0.5;
-        const my = rng.int(4, state.zone.height - 5) + 0.5;
-        if (!isWalkable(state.zone, mx, my)) continue;
-        if (Math.hypot(mx - player.x, my - player.y) < 8.0) continue;
-        spawnMob(state, data, pickWeightedMob(mapDef, rng), mx, my, rng.next() < mapDef.eliteChance);
-        break;
+    } else if (drop.kind === 'food' && drop.foodId) {
+      const food = data.foodsById[drop.foodId];
+      if (food) {
+        const healAmt = Math.round(derived.maxHp * food.healRatio);
+        const spAmt = Math.round(derived.maxSp * food.spRatio);
+        if (healAmt > 0) {
+          player.hp = Math.min(derived.maxHp, player.hp + healAmt);
+          state.events.push({ type: 'heal', targetId: 'player', x: player.x, y: player.y, amount: healAmt });
+        }
+        if (spAmt > 0) {
+          player.sp = Math.min(derived.maxSp, player.sp + spAmt);
+        }
+        if (food.buffId && food.buffDurationMs) {
+          addPlayerBuff(state, food.buffId, food.buffDurationMs);
+        }
+        const label = data.names.foods[food.id]?.name ?? food.id;
+        state.events.push({ type: 'notice', x: player.x, y: player.y, text: `¡${label}!`, color: food.color });
+        state.events.push({ type: 'sfx', sfx: food.buffId ? 'buff' : 'pickup' });
       }
-      state.rngCombatState = rng.getState();
     }
   }
 
-  // Portal transition check
-  if (state.portalUnlocked && state.floorIndex < data.mapsByFloor.length - 1) {
-    if (Math.hypot(player.x - state.zone.portal.x, player.y - state.zone.portal.y) <= 1.35) {
-      transitionToNextZone(state, data);
+  // Timed Overlapping Waves & Automatic Zone Transition (no portal needed!)
+  const mapDef = data.mapsByFloor[state.floorIndex]!;
+  if (!mapDef.bossId) {
+    if (state.currentWave < state.totalWaves) {
+      // Early wave-clear reward: speed up next wave and award bonus Amber!
+      if (state.mobs.length === 0 && !state.waveEarlyBonusPaid) {
+        state.waveEarlyBonusPaid = true;
+        state.waveTimerMs = Math.min(state.waveTimerMs, 1400);
+        player.amber += 20;
+        state.events.push({
+          type: 'notice',
+          x: player.x,
+          y: player.y,
+          text: '¡Oleada despejada! +20 ◆ Ámbar',
+          color: '#fde047',
+        });
+      }
+
+      // Timer ticks down regardless of remaining mobs -> overlapping wave pressure!
+      state.waveTimerMs -= clampedDt;
+      if (state.waveTimerMs <= 0) {
+        state.currentWave += 1;
+        state.waveTimerMs = mapDef.waveIntervalMs;
+        state.waveEarlyBonusPaid = false;
+        const bonusCount = state.currentWave === state.totalWaves ? 2 : 0;
+        spawnWaveMobs(state, data, mapDef, mapDef.mobsPerWave + bonusCount);
+
+        const isLastWave = state.currentWave === state.totalWaves;
+        state.events.push({
+          type: 'notice',
+          x: player.x,
+          y: player.y,
+          text: isLastWave ? '¡Queda una pura oleada!' : `¡Oleada ${state.currentWave}/${state.totalWaves}!`,
+          color: isLastWave ? '#f97316' : '#38bdf8',
+        });
+        state.events.push({ type: 'sfx', sfx: isLastWave ? 'roar' : 'portal' });
+      }
+    } else if (state.mobs.length === 0 && state.floorIndex < data.mapsByFloor.length - 1) {
+      // Final wave cleared -> brief breather then auto-advance to next biome!
+      if (state.zoneClearDelayMs <= 0) {
+        state.zoneClearDelayMs = 1600;
+        state.events.push({
+          type: 'notice',
+          x: player.x,
+          y: player.y,
+          text: '¡Zona despejada! Avanzando...',
+          color: '#4ade80',
+        });
+        state.events.push({ type: 'sfx', sfx: 'portal' });
+      } else {
+        state.zoneClearDelayMs -= clampedDt;
+        if (state.zoneClearDelayMs <= 0) {
+          transitionToNextZone(state, data);
+        }
+      }
     }
   }
 }

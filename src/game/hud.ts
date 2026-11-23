@@ -8,6 +8,8 @@ import type { BuildTag, GameState, StatKey } from '../core/types.ts';
 export interface HudCallbacks {
   onStartRun: (classId: string, seed: string, autoCast: boolean) => void;
   onSkillSlot: (index: number) => void;
+  onDash: () => void;
+  onUltimate: () => void;
   onUsePotion: () => void;
   onToggleAutoAttack: () => void;
   onToggleAutoCast: () => void;
@@ -211,12 +213,20 @@ export class GameHud {
       })
       .join('');
 
-    const skillChips = selected.activeSkillIds
-      .map((sid, i) => {
+    const skillChips = [
+      ...selected.activeSkillIds.map((sid, i) => {
         const sk = this.data.names.skills[sid]!;
         return `<div class="skill-chip"><span>[${i + 1}]</span> <strong>${sk.name}</strong> — ${sk.desc}</div>`;
-      })
-      .join('');
+      }),
+      (() => {
+        const sk = this.data.names.skills[selected.dashSkillId]!;
+        return `<div class="skill-chip"><span>[Espacio]</span> <strong>${sk.name}</strong> (Dash) — ${sk.desc}</div>`;
+      })(),
+      (() => {
+        const sk = this.data.names.skills[selected.ultimateSkillId]!;
+        return `<div class="skill-chip ult"><span>[3/E] ★</span> <strong>${sk.name}</strong> (Ultimate) — ${sk.desc}</div>`;
+      })(),
+    ].join('');
 
     const bar = (label: string, val: number, max: number, color: string): string => {
       const pct = Math.min(100, Math.round((val / max) * 100));
@@ -377,7 +387,7 @@ export class GameHud {
     this.escModal.innerHTML = `
       <div class="modal-card compact">
         <h2>Pausa</h2>
-        <p class="muted">WASD/Flechas mover · 1/2/3 habilidades · Q poción · C estadísticas · R Auto-Cast</p>
+        <p class="muted">WASD/Flechas mover · 1/2 habilidades · Espacio Dash · 3/E Ultimate · Q poción · C build · R Auto-Cast</p>
         <div class="modal-actions-col">
           <button class="primary-btn" id="esc-resume">Continuar Cacería</button>
           <button class="secondary-btn" id="esc-restart">Reiniciar con este Dinosaurio</button>
@@ -417,12 +427,17 @@ export class GameHud {
       sky_tailwind: 'Viento',
       codex_overclock: '>_ Boost',
       codex_shield: '>_ Escudo',
+      food_italiano: '🌭 Italiano',
+      food_as: '🥩 As Italiano',
+      food_salchipapas: '🍟 Salchipapas',
+      food_sopaipilla: '🫓 Sopaipilla',
+      food_chancaca: '🍯 Chancaca',
     };
     const activeBuffsHtml = player.buffs
       .filter((b) => b.remainingMs > 0 && buffLabels[b.id])
       .map(
         (b) =>
-          `<span class="buff-chip ${b.id.startsWith('codex_') ? 'codex' : ''}">${buffLabels[b.id]} ${(b.remainingMs / 1000).toFixed(0)}s</span>`
+          `<span class="buff-chip ${b.id.startsWith('codex_') ? 'codex' : b.id.startsWith('food_') ? 'food' : ''}">${buffLabels[b.id]} ${(b.remainingMs / 1000).toFixed(0)}s</span>`
       )
       .join('');
     const codexCd = Math.max(0, Math.ceil(state.pet.supportCooldownMs / 1000));
@@ -492,16 +507,21 @@ export class GameHud {
     this.zoneLabelEl.textContent = `${state.floorIndex + 1}/3 · ${zoneDisplayName}`;
     if (mapDef.bossId) {
       this.goalLabelEl.textContent = boss ? 'Objetivo: Derrota al Jefe' : '¡Victoria!';
-    } else if (state.portalUnlocked) {
-      this.goalLabelEl.textContent = '★ ¡Portal Abierto! (Este)';
-      this.goalLabelEl.style.color = '#38bdf8';
+      this.goalLabelEl.style.color = '#ef4444';
+    } else if (state.zoneClearDelayMs > 0) {
+      this.goalLabelEl.textContent = '★ ¡Zona despejada! Avanzando...';
+      this.goalLabelEl.style.color = '#4ade80';
+    } else if (state.currentWave >= state.totalWaves) {
+      this.goalLabelEl.textContent = `¡Queda una pura oleada! · ${state.mobs.length} vivos`;
+      this.goalLabelEl.style.color = '#f97316';
     } else {
-      this.goalLabelEl.textContent = `Caza: ${state.zoneKills}/${mapDef.targetKills}`;
+      const nextSec = Math.max(0, Math.ceil(state.waveTimerMs / 1000));
+      this.goalLabelEl.textContent = `Oleada ${state.currentWave}/${state.totalWaves} · Próx. ${nextSec}s`;
       this.goalLabelEl.style.color = '#fbbf24';
     }
     this.drawMinimap(state);
 
-    // Hotbar
+    // Hotbar: [1] Skill 1, [2] Skill 2, [Espacio] Dash, [3/E] Ultimate, [Q] Poción
     const skillBtns = cls.activeSkillIds
       .map((sid, idx) => {
         const sk = this.data.skillsById[sid]!;
@@ -519,17 +539,42 @@ export class GameHud {
       })
       .join('');
 
+    const dashSk = this.data.skillsById[cls.dashSkillId]!;
+    const dashInfo = this.data.names.skills[cls.dashSkillId]!;
+    const dashCd = player.skillCooldowns[cls.dashSkillId] ?? 0;
+    const dashDim = dashCd > 0 || player.sp < dashSk.spCost;
+
+    const ultSk = this.data.skillsById[cls.ultimateSkillId]!;
+    const ultInfo = this.data.names.skills[cls.ultimateSkillId]!;
+    const ultCd = player.skillCooldowns[cls.ultimateSkillId] ?? 0;
+    const ultDim = ultCd > 0 || player.sp < ultSk.spCost;
+
+    const potionMeta =
+      player.potions === 1 ? '×1 ¡Queda una pura!' : `×${player.potions}`;
+
     this.hotbarEl.innerHTML = `
       ${skillBtns}
-      <button class="slot-btn potion ${player.potions <= 0 ? 'dim' : ''}" id="slot-potion" title="Poción de Ámbar (+42% HP / +45% SP)">
+      <button class="slot-btn dash ${dashDim ? 'dim' : ''}" id="slot-dash" title="[Espacio] ${dashInfo.desc}">
+        <span class="slot-key">ESPACIO</span>
+        <span class="slot-name">${dashInfo.name}</span>
+        <span class="slot-meta">${dashCd > 0 ? `${(dashCd / 1000).toFixed(1)}s` : `${dashSk.spCost} SP`}</span>
+      </button>
+      <button class="slot-btn ultimate ${ultDim ? 'dim' : 'ready'}" id="slot-ult" title="[3 / E] ULTIMATE: ${ultInfo.desc}">
+        <span class="slot-key">3 / E</span>
+        <span class="slot-name">★ ${ultInfo.name}</span>
+        <span class="slot-meta">${ultCd > 0 ? `${(ultCd / 1000).toFixed(1)}s` : `${ultSk.spCost} SP`}</span>
+      </button>
+      <button class="slot-btn potion ${player.potions <= 0 ? 'dim' : ''} ${player.potions === 1 ? 'potion-last' : ''}" id="slot-potion" title="Poción de Ámbar (+42% HP / +45% SP)">
         <span class="slot-key">Q</span>
         <span class="slot-name">Poción Ámbar</span>
-        <span class="slot-meta">×${player.potions}</span>
+        <span class="slot-meta">${potionMeta}</span>
       </button>
     `;
     this.hotbarEl.querySelectorAll<HTMLButtonElement>('[data-slot]').forEach((btn) => {
       btn.addEventListener('click', () => this.cb.onSkillSlot(Number(btn.dataset.slot)));
     });
+    this.hotbarEl.querySelector('#slot-dash')!.addEventListener('click', () => this.cb.onDash());
+    this.hotbarEl.querySelector('#slot-ult')!.addEventListener('click', () => this.cb.onUltimate());
     this.hotbarEl.querySelector('#slot-potion')!.addEventListener('click', () => this.cb.onUsePotion());
 
     // Bottom EXP bar
@@ -609,17 +654,15 @@ export class GameHud {
       }
     }
 
-    // Portal
-    if (state.floorIndex < this.data.mapsByFloor.length - 1) {
-      ctx.fillStyle = state.portalUnlocked ? '#38bdf8' : '#475569';
-      ctx.fillRect(state.zone.portal.x * sx - 3, state.zone.portal.y * sy - 3, 6, 6);
-    }
-
-    // Chests
+    // Chests & Chilean Fast Food Drops
     for (const d of state.drops) {
-      if (d.kind !== 'chest') continue;
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(d.x * sx - 3, d.y * sy - 3, 6, 6);
+      if (d.kind === 'chest') {
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(d.x * sx - 3, d.y * sy - 3, 6, 6);
+      } else if (d.kind === 'food') {
+        ctx.fillStyle = '#86efac';
+        ctx.fillRect(d.x * sx - 2, d.y * sy - 2, 4, 4);
+      }
     }
 
     // Mobs

@@ -76,6 +76,12 @@
     "ptera_piercing_arrow": { "name": "Flecha Perforante", "desc": "Disparo de alta velocidad que atraviesa enemigos e ignora 40% DEF." },
     "ptera_quill_volley": { "name": "Lluvia de Espinas", "desc": "Abanico de 5 flechas veloces frente al arquero." },
     "ptera_wing_vault": { "name": "Impulso de Alas", "desc": "Salto evasivo hacia atrás con ráfaga de viento y bono de velocidad." },
+    "dodo_feather_blink": { "name": "Salto de Plumas", "desc": "Dash arcano que deja un estallido de chispas ígneas al atravesar enemigos." },
+    "rex_extinction_cleave": { "name": "ULT: Corte Extinción", "desc": "Espadazo volcánico colosal de 200° que ignora 45% DEF, empuja y aturde en enorme alcance." },
+    "raptor_thousand_cuts": { "name": "ULT: Danza de Mil Cortes", "desc": "Te vuelves intocable y encadenas 7 cortes relámpago 100% críticos con sangrado masivo." },
+    "trike_jurassic_stampede": { "name": "ULT: Estampida Jurásica", "desc": "Embestida colosal imparable que arrasa, aturde 2 s y activa tu Égida de Placas." },
+    "dodo_meteor_cataclysm": { "name": "ULT: Cataclismo Meteorito", "desc": "Invoca 4 meteoritos gigantes en una enorme área ardiente que aturde a todos." },
+    "ptera_bone_tempest": { "name": "ULT: Tempestad de Plumas", "desc": "Huracán circular de 14 flechas perforantes en 360° que ignoran 55% DEF y aceleran tu vuelo." },
     "mob_bite": { "name": "Mordisco", "desc": "Ataque cuerpo a cuerpo." },
     "mob_venom_spit": { "name": "Escupitajo Ácido", "desc": "Proyectil venenoso." },
     "mob_quake_slam": { "name": "Golpe Sísmico", "desc": "Impacto pesado en área." },
@@ -140,5 +146,13 @@
     "relic_trike_plate": { "name": "Placa de Triceratops", "desc": "Espinas sísmicas contra atacantes." },
     "relic_volcanic_amber": { "name": "Ámbar Volcánico", "desc": "Explosión ígnea al derrotar enemigos." },
     "relic_abyssal_claw": { "name": "Garra Abisal", "desc": "Drena vitalidad y energía al cazar." }
+  },
+  "foods": {
+    "completo_italiano": { "name": "Completo Italiano", "desc": "Cura 28% HP y activa +20% daño y +15% velocidad por 6.5 s." },
+    "completo": { "name": "Completo", "desc": "Cura 22% HP y recupera 28% SP al instante." },
+    "as_italiano": { "name": "As", "desc": "Cura 18% HP y otorga +28% daño (ATK/MATK) por 6.5 s." },
+    "salchipapas": { "name": "Salchipapas", "desc": "Cura 10% HP y otorga +30% velocidad de ataque por 6.5 s." },
+    "sopaipilla": { "name": "Sopaipilla", "desc": "Cura 15% HP y otorga +26% velocidad de movimiento por 5.5 s." },
+    "sopaipilla_chancaca": { "name": "Sopaipilla con Chancaca", "desc": "Cura 34% HP, 38% SP y reduce 25% el daño recibido por 6.5 s." }
   }
 }

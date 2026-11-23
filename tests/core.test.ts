@@ -101,7 +101,7 @@ describe('DinoBlade Core & Data Validation', () => {
     }
   });
 
-  it('casts every playable dinosaur class basic + 3 active skills through cast()', () => {
+  it('casts every playable dinosaur class basic + 2 active + Space dash + Ultimate skills through cast()', () => {
     for (const cls of data.classes) {
       const state = createGameState(data, { classId: cls.id, seed: `cast-${cls.id}` });
       const mob = state.mobs[0]!;
@@ -111,12 +111,56 @@ describe('DinoBlade Core & Data Validation', () => {
       const basicRes = cast(state, data, 'player', cls.basicSkillId, { x: mob.x, y: mob.y });
       expect(basicRes.ok).toBe(true);
 
-      for (const sid of cls.activeSkillIds) {
+      for (const sid of [...cls.activeSkillIds, cls.dashSkillId, cls.ultimateSkillId]) {
         state.player.sp = 999;
         const res = cast(state, data, 'player', sid, { x: mob.x, y: mob.y });
         expect(res.ok).toBe(true);
       }
     }
+  });
+
+  it('auto-consumes dropped Chilean fast food on walkover with heal and temporary buff', () => {
+    const state = createGameState(data, { classId: 'trex', seed: 'food-test' });
+    expect(data.foods.length).toBeGreaterThanOrEqual(6);
+    const derived = computeDerivedStats(state, data);
+    state.player.hp = Math.round(derived.maxHp * 0.4);
+    state.drops.push({
+      id: 'drop_italiano_test',
+      kind: 'food',
+      foodId: 'completo_italiano',
+      x: state.player.x + 0.2,
+      y: state.player.y,
+      amount: 1,
+    });
+    stepGame(state, data, 50, { moveX: 0, moveY: 0 });
+    expect(state.drops.some((d) => d.id === 'drop_italiano_test')).toBe(false);
+    expect(state.player.hp).toBeGreaterThan(Math.round(derived.maxHp * 0.4));
+    expect(state.player.buffs.some((b) => b.id === 'food_italiano')).toBe(true);
+  });
+
+  it('spawns overlapping timed waves even with mobs alive and auto-advances to the next zone when final wave clears', () => {
+    const state = createGameState(data, { classId: 'velociraptor', seed: 'wave-test' });
+    expect(state.floorIndex).toBe(0);
+    expect(state.currentWave).toBe(1);
+    expect(state.totalWaves).toBeGreaterThanOrEqual(3);
+    const initialMobs = state.mobs.length;
+
+    // Advance wave timer while mobs are still alive -> wave 2 spawns on top!
+    state.waveTimerMs = 20;
+    stepGame(state, data, 50, { moveX: 0, moveY: 0 });
+    expect(state.currentWave).toBe(2);
+    expect(state.mobs.length).toBeGreaterThan(initialMobs);
+
+    // Jump to final wave, clear all mobs -> zone auto-advances after brief delay
+    state.currentWave = state.totalWaves;
+    state.mobs.length = 0;
+    stepGame(state, data, 50, { moveX: 0, moveY: 0 });
+    expect(state.zoneClearDelayMs).toBeGreaterThan(0);
+
+    // Advance past zoneClearDelayMs -> floor 1
+    state.zoneClearDelayMs = 20;
+    stepGame(state, data, 50, { moveX: 0, moveY: 0 });
+    expect(state.floorIndex).toBe(1);
   });
 
   it('handles roguelite boon offers deterministically with synergy weighting, reroll, pick, and potions', () => {

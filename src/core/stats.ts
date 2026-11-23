@@ -171,6 +171,24 @@ export function computeDerivedStats(state: GameState, data: GameData): DerivedSt
       case 'codex_shield':
         damageReduction += 0.3;
         break;
+      case 'food_italiano':
+        buffAtkPct += 0.2;
+        buffMatkPct += 0.2;
+        buffSpeedPct += 0.15;
+        break;
+      case 'food_as':
+        buffAtkPct += 0.28;
+        buffMatkPct += 0.28;
+        break;
+      case 'food_salchipapas':
+        buffAspdPct += 0.3;
+        break;
+      case 'food_sopaipilla':
+        buffSpeedPct += 0.26;
+        break;
+      case 'food_chancaca':
+        damageReduction += 0.25;
+        break;
       default:
         break;
     }
