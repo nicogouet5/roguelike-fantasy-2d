@@ -26,9 +26,6 @@ export function renderMapVisuals(
 ): MapVisuals {
   const tiles: Phaser.GameObjects.Image[] = [];
   const props: Phaser.GameObjects.Sprite[] = [];
-  const groundTint = tintFromHex(palette.groundTint);
-  const pathTint = tintFromHex(palette.pathTint);
-  const wallTint = tintFromHex(palette.wallTint);
 
   for (let gy = 0; gy < zone.height; gy++) {
     for (let gx = 0; gx < zone.width; gx++) {
@@ -39,7 +36,6 @@ export function renderMapVisuals(
 
       if (kind === 'wall') {
         const wall = scene.add.image(pos.x, pos.y - 8, ATLAS_KEY, `tile_${zone.biome}_wall`);
-        wall.setTint(wallTint);
         wall.setDepth(pos.y - 4);
         tiles.push(wall);
         continue;
@@ -50,7 +46,6 @@ export function renderMapVisuals(
         ? `tile_${zone.biome}_path_${variant}`
         : `tile_${zone.biome}_ground_${variant}`;
       const tile = scene.add.image(pos.x, pos.y, ATLAS_KEY, frame);
-      tile.setTint(isPath ? pathTint : groundTint);
       tile.setDepth(-1000 + pos.y * 0.01);
       tiles.push(tile);
     }

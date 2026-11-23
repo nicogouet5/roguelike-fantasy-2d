@@ -35,11 +35,11 @@ interface Horn {
   baseWidth: number;
 }
 
-// Tips and vectors follow the existing 48×48 Triceratops atlas art.
+// Points just inside the three ivory tips in the Codex atlas, on a 48×48 grid.
 const HORNS: readonly Horn[] = [
-  { tipX: 42, tipY: 12, directionX: 0.95, directionY: -0.32, baseWidth: 1.7 },
-  { tipX: 41, tipY: 16, directionX: 0.95, directionY: -0.3, baseWidth: 1.45 },
-  { tipX: 40, tipY: 18, directionX: 0.72, directionY: -0.69, baseWidth: 1.25 },
+  { tipX: 41, tipY: 23, directionX: 0.82, directionY: -0.58, baseWidth: 1.5 },
+  { tipX: 45, tipY: 25, directionX: 0.76, directionY: -0.65, baseWidth: 1.45 },
+  { tipX: 40, tipY: 33, directionX: 0.72, directionY: -0.69, baseWidth: 1.25 },
 ];
 
 /** Draws only the level-earned extensions, leaving the atlas' base horns untouched. */

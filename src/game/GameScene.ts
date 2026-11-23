@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { ANIM_COUNTS, ATLAS_KEY, buildPixelAtlas, getDinoFrameName } from '../assets/pixelArt.ts';
+import { ANIM_COUNTS, ATLAS_KEY, buildPixelAtlas, clearDinoPreviewCache, getDinoFrameName } from '../assets/pixelArt.ts';
+import { codexBackdropKey, preloadCodexArt, registerCodexArt } from '../assets/codexArt.ts';
 import { audioManager } from '../audio/synth.ts';
 import { pickBoon, rerollOffer, skipOffer } from '../core/boons.ts';
 import type { GameData } from '../core/data.ts';
@@ -35,6 +36,7 @@ export class GameScene extends Phaser.Scene {
   private hud: GameHud | null = null;
 
   private tileGroup: Phaser.GameObjects.Image[] = [];
+  private floorBackdrop: Phaser.GameObjects.Image | null = null;
   private propSprites: Phaser.GameObjects.Sprite[] = [];
   private portalSprite: Phaser.GameObjects.Sprite | null = null;
 
@@ -69,9 +71,18 @@ export class GameScene extends Phaser.Scene {
     this.hud = hud;
   }
 
+  preload(): void {
+    preloadCodexArt(this);
+  }
+
   create(): void {
     this.gameData = loadGameData();
+    registerCodexArt(this);
+    clearDinoPreviewCache();
     buildPixelAtlas(this);
+
+    this.scale.on('resize', this.resizeBackdrop, this);
+    this.events.once('shutdown', () => this.scale.off('resize', this.resizeBackdrop, this));
 
     this.particles = new ParticlePool(this, 100);
     this.damageText = new DamageTextPool(this, 48);
@@ -230,6 +241,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private clearWorldVisuals(): void {
+    this.floorBackdrop?.destroy();
+    this.floorBackdrop = null;
     for (const t of this.tileGroup) t.destroy();
     this.tileGroup = [];
     for (const p of this.propSprites) p.destroy();
@@ -272,6 +285,11 @@ export class GameScene extends Phaser.Scene {
     const mapDef = this.gameData.mapsByFloor[zone.floorIndex]!;
     const palette = this.gameData.mapPalettesById[mapDef.paletteId]!;
     this.cameras.main.setBackgroundColor(palette.background);
+    const backdrop = codexBackdropKey(zone.floorIndex);
+    if (this.textures.exists(backdrop)) {
+      this.floorBackdrop = this.add.image(0, 0, backdrop).setScrollFactor(0).setDepth(-2000).setAlpha(0.68);
+      this.resizeBackdrop();
+    }
     const mapVisuals = renderMapVisuals(
       this,
       zone,
@@ -319,6 +337,13 @@ export class GameScene extends Phaser.Scene {
     const gy = sy - sx * 0.5;
     const len = Math.hypot(gx, gy) || 1;
     return { moveX: gx / len, moveY: gy / len };
+  }
+
+  private resizeBackdrop(): void {
+    if (!this.floorBackdrop) return;
+    const { width, height } = this.scale.gameSize;
+    const scale = Math.max(width / this.floorBackdrop.width, height / this.floorBackdrop.height);
+    this.floorBackdrop.setPosition(width / 2, height / 2).setScale(scale);
   }
 
   update(_time: number, delta: number): void {

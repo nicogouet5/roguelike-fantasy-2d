@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import type { BiomeId } from '../core/types.ts';
+import { codexFrame } from './codexArt.ts';
 
 export const ATLAS_KEY = 'dino_atlas';
 
@@ -1314,11 +1315,13 @@ function drawIsoDiamondTile(
     const x0 = 16 - span;
     const x1 = 16 + span - 1;
     for (let x = x0; x <= x1; x++) {
-      const hash = (x * 73 + y * 151 + variant * 37) & 15;
+      const hash = ((x >> 2) * 73 + (y >> 1) * 151 + variant * 37) & 15;
+      const seam = (x + y * 2 + variant * 4) % 24;
       let col = cBase;
       if (x === x0 || x === x1) col = cBord;
+      else if (y > 2 && y < 13 && seam === 0) col = cA;
       else if (hash < 3) col = cA;
-      else if (hash > 12) col = cB;
+      else if (hash > 12 || (y < 7 && x === x0 + 1)) col = cB;
       g.px(x, y, col);
     }
   }
@@ -1338,7 +1341,7 @@ function drawIsoDiamondTile(
 function drawPropSprite(kind: string): HTMLCanvasElement {
   const g = new PixelGrid(28, 32);
   if (kind === 'fern') {
-    const f = makeRamp('#14532d', '#16a34a', '#4ade80');
+    const f = makeRamp('#2c3d38', '#566451', '#819078');
     g.taper(14, 28, 1.5, 5, 16, 0.9, f);
     g.taper(14, 28, 1.5, 23, 16, 0.9, f);
     g.taper(14, 28, 1.5, 9, 11, 0.9, f);
@@ -1346,7 +1349,7 @@ function drawPropSprite(kind: string): HTMLCanvasElement {
     g.taper(14, 28, 1.6, 14, 9, 0.9, f);
   } else if (kind === 'palm') {
     g.taper(14, 29, 2.0, 13, 12, 1.4, makeRamp('#451a03', '#78350f', '#b45309'));
-    const leaf = makeRamp('#14532d', '#15803d', '#4ade80');
+    const leaf = makeRamp('#293b38', '#455e52', '#738671');
     g.taper(13, 12, 1.8, 3, 15, 0.9, leaf);
     g.taper(13, 12, 1.8, 24, 14, 0.9, leaf);
     g.taper(13, 12, 1.8, 6, 6, 0.9, leaf);
@@ -1443,6 +1446,10 @@ function drawSmallIcon(
 
 const previewFramesCache = new Map<string, string[]>();
 
+export function clearDinoPreviewCache(): void {
+  previewFramesCache.clear();
+}
+
 /** Returns all 4 crisp animated idle data-URLs for Title Screen / HUD previews */
 export function getDinoPreviewFrames(spriteId: string): string[] {
   const cached = previewFramesCache.get(spriteId);
@@ -1473,7 +1480,7 @@ export function getDinoPreviewFrames(spriteId: string): string[] {
         canvas = drawSpinosaurusBossFrame('idle', f);
         break;
     }
-    urls.push(canvas.toDataURL());
+    urls.push((codexFrame(spriteId, 'idle', f) ?? canvas).toDataURL());
   }
   previewFramesCache.set(spriteId, urls);
   return urls;
@@ -1493,7 +1500,7 @@ export function buildPixelAtlas(scene: Phaser.Scene): void {
     for (const pose of poses) {
       const count = ANIM_COUNTS[pose];
       for (let f = 0; f < count; f++) {
-        entries.push([`${prefix}_${pose}_${f}`, drawer(pose, f)]);
+        entries.push([`${prefix}_${pose}_${f}`, codexFrame(prefix, pose, f) ?? drawer(pose, f)]);
       }
     }
   };
@@ -1524,19 +1531,19 @@ export function buildPixelAtlas(scene: Phaser.Scene): void {
     }
   > = {
     jungle: {
-      ground: ['#2d5a34', '#244a2a', '#3a7040', '#1d3c22'],
-      path: ['#7c5c3b', '#6b4d31', '#8f6b47', '#583f27'],
-      wall: ['#3f473e', '#2d332d', '#545e53', '#1c201c'],
+      ground: ['#344445', '#2d3c3e', '#405053', '#273339'],
+      path: ['#60594f', '#514e48', '#6a6356', '#44423e'],
+      wall: ['#4b6767', '#354c52', '#577978', '#283940'],
     },
     volcano: {
-      ground: ['#3a3335', '#2c2628', '#4a4144', '#221c1e'],
-      path: ['#574139', '#47332c', '#6b4f44', '#33231e'],
-      wall: ['#261f22', '#1a1417', '#7c2d12', '#0f0c0e'],
+      ground: ['#39364f', '#302d43', '#46435c', '#272535'],
+      path: ['#765850', '#644945', '#88675b', '#493638'],
+      wall: ['#57506f', '#413b58', '#685b82', '#2d2942'],
     },
     canyon: {
-      ground: ['#6e5c4b', '#5c4b3c', '#826e5a', '#4a3c30'],
-      path: ['#87735d', '#756350', '#99836b', '#5e4f3f'],
-      wall: ['#4a423d', '#36302c', '#5e544d', '#24201e'],
+      ground: ['#3c535b', '#31454e', '#48636a', '#263b44'],
+      path: ['#676b65', '#545c59', '#777d72', '#414d4d'],
+      wall: ['#647980', '#47616c', '#74898b', '#344951'],
     },
   };
 
