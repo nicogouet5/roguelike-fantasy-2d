@@ -7,7 +7,7 @@ import { computeDerivedStats, getBasicAttackRange, TAG_SET_TIERS } from '../core
 import type { BuildTag, GameState, StatKey } from '../core/types.ts';
 
 export interface HudCallbacks {
-  onStartRun: (classId: string, seed: string, autoCast: boolean) => void;
+  onStartRun: (classId: string, seed: string, autoCast: boolean, playCutscene?: boolean) => void;
   onDevLevelUp: () => void;
   onDevStage: (index: number) => void;
   onSkillSlot: (index: number) => void;
@@ -362,7 +362,7 @@ export class GameHud {
     });
 
     this.titleEl.querySelector('#start-run-btn')!.addEventListener('click', () => {
-      this.cb.onStartRun(this.selectedClassId, this.seed, this.autoCastStart);
+      this.cb.onStartRun(this.selectedClassId, this.seed, this.autoCastStart, true);
     });
   }
 
@@ -396,9 +396,14 @@ export class GameHud {
     this.startPreviewAnim();
   }
 
-  hideTitle(): void {
+  hideTitleForCutscene(): void {
     this.stopPreviewAnim();
     this.titleEl.style.display = 'none';
+    this.hudLayer.style.display = 'none';
+  }
+
+  hideTitle(): void {
+    this.hideTitleForCutscene();
     this.hudLayer.style.display = 'block';
     this.statsOpen = false;
     this.escOpen = false;
@@ -491,7 +496,7 @@ export class GameHud {
     this.escModal.querySelector('#esc-resume')!.addEventListener('click', () => this.toggleEscMenu());
     this.escModal.querySelector('#esc-restart')!.addEventListener('click', () => {
       if (this.lastState) {
-        this.cb.onStartRun(this.lastState.player.classId, this.lastState.seed, this.lastState.player.autoCast);
+        this.cb.onStartRun(this.lastState.player.classId, this.lastState.seed, this.lastState.player.autoCast, false);
       }
     });
     this.escModal.querySelector('#esc-title')!.addEventListener('click', () => this.cb.onReturnToTitle());

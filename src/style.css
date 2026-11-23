@@ -52,6 +52,84 @@ body,
   z-index: 10;
 }
 
+#cutscene-overlay {
+  --cutscene-gutter: clamp(12px, 4vw, 56px);
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #05070a;
+  pointer-events: auto;
+  opacity: 1;
+  transition: opacity 240ms ease-out;
+}
+
+#cutscene-overlay.cutscene-fade-out {
+  opacity: 0;
+}
+
+.cutscene-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.cutscene-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(0deg, rgba(5, 7, 10, 0.85), transparent 35%),
+    radial-gradient(ellipse at center, transparent 48%, rgba(5, 7, 10, 0.42) 100%);
+}
+
+.cutscene-footer {
+  position: absolute;
+  inset-inline: max(var(--cutscene-gutter), env(safe-area-inset-left)) max(var(--cutscene-gutter), env(safe-area-inset-right));
+  bottom: max(var(--cutscene-gutter), env(safe-area-inset-bottom));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+}
+
+.cutscene-caption {
+  margin: 0;
+  padding: 6px clamp(10px, 1.5vw, 20px);
+  border: 12px solid transparent;
+  border-image: url('./assets/ui/panel-ornate-gold.png') 32 / 12px / 0 stretch;
+  background: rgba(10, 13, 19, 0.88);
+  color: #ffe5a2;
+  font: 700 clamp(1.25rem, 1rem + 2vw, 3rem) / 1.1 var(--font-display);
+  letter-spacing: 0.035em;
+  text-shadow: 0 2px 8px #05070a;
+}
+
+.cutscene-skip-btn {
+  min-height: 44px;
+  margin-inline-start: auto;
+  padding: 5px 12px;
+  border: 9px solid transparent;
+  border-image: url('./assets/ui/slot-slate.png') 32 / 9px / 0 stretch;
+  background: rgba(15, 21, 29, 0.95);
+  color: var(--text);
+  font: 700 0.875rem var(--font-ui);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.cutscene-skip-btn:hover,
+.cutscene-skip-btn:focus-visible {
+  border-image-source: url('./assets/ui/slot-gold.png');
+  background-color: #292622;
+}
+
+.cutscene-skip-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
 /* ============================================================================
  * KENNEY FANTASY UI 9-SLICE BORDERS & FILIGREE DIVIDERS
  * ========================================================================== */

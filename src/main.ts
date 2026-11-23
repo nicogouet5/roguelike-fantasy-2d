@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import './style.css';
 import { audioManager } from './audio/synth.ts';
 import { loadGameData } from './core/data.ts';
+import { playClassCutscene } from './game/cutscene.ts';
 import { GameScene } from './game/GameScene.ts';
 import { GameHud } from './game/hud.ts';
 
@@ -25,8 +26,31 @@ const game = new Phaser.Game({
 });
 
 const hudRoot = document.getElementById('hud-root')!;
+let startingRun = false;
 const hud = new GameHud(hudRoot, data, {
-  onStartRun: (classId, seed, autoCast) => gameScene.startRun(classId, seed, autoCast),
+  onStartRun: async (classId, seed, autoCast, playCutscene) => {
+    if (startingRun) return;
+    startingRun = true;
+    try {
+      if (playCutscene) {
+        audioManager.setCutscenePlaying(true);
+        try {
+          audioManager.unlock();
+          hud.hideTitleForCutscene();
+          await playClassCutscene(hudRoot, {
+            classId,
+            className: data.names.classes[classId]?.name ?? classId,
+            muted: audioManager.isMuted(),
+          });
+        } finally {
+          audioManager.setCutscenePlaying(false);
+        }
+      }
+      gameScene.startRun(classId, seed, autoCast);
+    } finally {
+      startingRun = false;
+    }
+  },
   onDevLevelUp: () => gameScene.handleDevLevelUp(),
   onDevStage: (index) => gameScene.handleDevStage(index),
   onSkillSlot: (index) => gameScene.triggerSkillSlot(index),

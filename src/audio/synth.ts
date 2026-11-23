@@ -1,6 +1,7 @@
 import type { SfxKind } from '../core/types.ts';
 
 type MusicMode = 'ambient' | 'boss';
+const MUSIC_VOLUME = 0.34;
 
 interface SfxBankEntry {
   files: string[];
@@ -161,6 +162,7 @@ class DinoAudioManager {
   private variantCounter = new Map<SfxKind, number>();
 
   private musicTimer: number | null = null;
+  private cutscenePlaying = false;
   private musicStep = 0;
   private musicMode: MusicMode = 'ambient';
   private master: GainNode | null = null;
@@ -176,7 +178,7 @@ class DinoAudioManager {
       this.loadingStarted = true;
       void this.preloadAll(this.ctx);
     }
-    if (this.musicTimer === null && !this.muted) this.startMusic();
+    this.startMusic();
   }
 
   private async preloadAll(ctx: AudioContext): Promise<void> {
@@ -218,7 +220,22 @@ class DinoAudioManager {
     if (this.musicMode === mode) return;
     this.musicMode = mode;
     this.musicStep = 0;
-    if (!this.muted && this.ctx?.state === 'running') this.playModeSting(mode);
+    if (!this.cutscenePlaying && !this.muted && this.ctx?.state === 'running') this.playModeSting(mode);
+  }
+
+  setCutscenePlaying(active: boolean): void {
+    if (this.cutscenePlaying === active) return;
+    this.cutscenePlaying = active;
+
+    if (this.musicBus && this.ctx) {
+      const now = this.ctx.currentTime;
+      this.musicBus.gain.cancelScheduledValues(now);
+      if (active) this.musicBus.gain.setValueAtTime(0, now);
+      else this.musicBus.gain.setTargetAtTime(MUSIC_VOLUME, now, 0.035);
+    }
+
+    if (active) this.stopMusic();
+    else this.startMusic();
   }
 
   /** Punchy layered impact SFX triggered on every player hit (melee, ranged, crit, weakness). */
@@ -386,7 +403,7 @@ class DinoAudioManager {
     compressor.attack.value = 0.004;
     compressor.release.value = 0.18;
     this.musicBus = this.ctx.createGain();
-    this.musicBus.gain.value = 0.34;
+    this.musicBus.gain.value = this.cutscenePlaying ? 0 : MUSIC_VOLUME;
     this.sfxBus = this.ctx.createGain();
     this.sfxBus.gain.value = 0.9;
     this.musicBus.connect(this.master);
@@ -472,7 +489,7 @@ class DinoAudioManager {
   }
 
   private startMusic(): void {
-    if (typeof window === 'undefined' || this.musicTimer !== null) return;
+    if (!this.ctx || this.muted || this.cutscenePlaying || this.musicTimer !== null) return;
     this.musicTimer = window.setInterval(() => this.tickMusic(), 360);
     this.tickMusic();
   }
