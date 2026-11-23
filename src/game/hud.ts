@@ -49,6 +49,7 @@ export class GameHud {
   private titleEl!: HTMLDivElement;
   private hudLayer!: HTMLDivElement;
   private statusCard!: HTMLDivElement;
+  private waveHudEl!: HTMLDivElement;
   private bossBarEl!: HTMLDivElement;
   private zoneBannerEl!: HTMLDivElement;
   private minimapWrap!: HTMLDivElement;
@@ -89,6 +90,10 @@ export class GameHud {
     this.statusCard = document.createElement('div');
     this.statusCard.id = 'status-card';
     this.hudLayer.appendChild(this.statusCard);
+
+    this.waveHudEl = document.createElement('div');
+    this.waveHudEl.id = 'wave-hud';
+    this.hudLayer.appendChild(this.waveHudEl);
 
     this.bossBarEl = document.createElement('div');
     this.bossBarEl.id = 'boss-bar';
@@ -566,11 +571,12 @@ export class GameHud {
     this.statusCard.querySelector('#pill-buy-pot')?.addEventListener('click', () => this.cb.onBuyAmberPotion());
     this.statusCard.querySelector('#pill-buy-offer')?.addEventListener('click', () => this.cb.onBuyAmberOffer());
 
-    // Boss HP Bar
+    // Boss HP Bar or Top-Center Wave Progression HUD
     const boss = state.mobs.find((m) => m.isBoss && m.hp > 0);
     if (boss) {
       const pct = Math.max(0, Math.round((boss.hp / boss.maxHp) * 100));
       this.bossBarEl.style.display = 'block';
+      this.waveHudEl.style.display = 'none';
       this.bossBarEl.innerHTML = `
         <div class="boss-title">
           <span>⚔️ ${this.data.names.mobs[boss.mobId]}</span>
@@ -580,6 +586,42 @@ export class GameHud {
       `;
     } else {
       this.bossBarEl.style.display = 'none';
+      this.waveHudEl.style.display = 'block';
+      const totalFloors = this.data.mapsByFloor.length;
+      const isLastWave = state.currentWave >= state.totalWaves;
+      const nextFloorName = this.data.mapsByFloor[state.floorIndex + 1]
+        ? (this.data.names.maps[this.data.mapsByFloor[state.floorIndex + 1]!.id] ?? `Nivel ${state.floorIndex + 2}`)
+        : '';
+      if (state.zoneClearDelayMs > 0) {
+        this.waveHudEl.className = 'cleared';
+        this.waveHudEl.innerHTML = `
+          <div class="wave-hud-top">
+            <span class="wave-badge">NIVEL ${state.floorIndex + 1}/${totalFloors} COMPLETADO</span>
+            <span class="wave-count">Avanzando a ${nextFloorName}...</span>
+          </div>
+          <div class="wave-track"><div class="wave-fill cleared" style="width:100%"></div></div>
+        `;
+      } else if (isLastWave) {
+        this.waveHudEl.className = 'final-wave';
+        this.waveHudEl.innerHTML = `
+          <div class="wave-hud-top">
+            <span class="wave-badge">¡QUEDA UNA PURA OLEADA! (${state.currentWave}/${state.totalWaves})</span>
+            <span class="wave-count">${state.mobs.length} enemigos · Limpia para pasar de nivel</span>
+          </div>
+          <div class="wave-track"><div class="wave-fill final" style="width:100%"></div></div>
+        `;
+      } else {
+        const nextSec = Math.max(0, Math.ceil(state.waveTimerMs / 1000));
+        const pct = Math.max(0, Math.min(100, Math.round((1 - state.waveTimerMs / Math.max(1, mapDef.waveIntervalMs)) * 100)));
+        this.waveHudEl.className = '';
+        this.waveHudEl.innerHTML = `
+          <div class="wave-hud-top">
+            <span class="wave-badge">NIVEL ${state.floorIndex + 1}/${totalFloors} · OLEADA ${state.currentWave}/${state.totalWaves}</span>
+            <span class="wave-count">${state.mobs.length} enemigos · Próx. en ${nextSec}s</span>
+          </div>
+          <div class="wave-track"><div class="wave-fill" style="width:${pct}%"></div></div>
+        `;
+      }
     }
 
     // Minimap + Zone Info + Dark-Fantasy Location Discovered Banner
